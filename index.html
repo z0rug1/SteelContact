@@ -350,13 +350,13 @@ fieldset.slab{display:block}
         <li><b>View range</b>Each vehicle spots enemies only inside its view circle: Light 760 m, Medium and Sniper 600 m, Heavy 470 m, SPG 430 m. Your team shares what anyone sees.</li>
         <li><b>Sight lines</b>Inside that range, an enemy is visible when anyone on your team has a line to it that no bush, tree or smoke cuts. Cover you sit in doesn't block your own view. Within 95 m everyone is seen, cover or not.</li>
         <li><b>Firing</b>Firing reveals you for 4 s to every enemy within 1.5× its view range unless a rock or building is in between. Bushes don't hide a muzzle flash. Exception: if you're unspotted and inside a bush, firing only leaves a sound ring. Repeat shots tighten it. Being hit also shows your HP marker for 4 s.</li>
-        <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fall steeply and splash almost evenly all round. Long shots come in flat and throw a cone ahead of the impact. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
+        <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fly flat and throw a long cone ahead of the impact. Long shots are lobbed high, come down steeply and splash almost evenly all round. Flight time runs from 0.1 s point blank to 2 s at 1500 m. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. Only a direct hit counts as a penetration in your battle stats. Splash is listed separately. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
         <li><b>Stun</b>Artillery shells stun every enemy inside a zone of the same shape, 1.75× larger, for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
         <li><b>Consumables</b>Repair kit fixes tracks, gun and engine and shakes off stun. Extinguisher puts out fire and fireproofs you for 12 s. Smoke drops a 14 s cloud that blocks sight lines.</li>
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
         <li><b>Terrain</b>Trees fall when you drive into them. Shallow fords and marsh slow you. Deep river water is impassable. Ram enemies at speed for damage. Heavier tanks win.</li>
         <li><b>Views</b>Tactical 3D looks down with north up. Chase puts the camera behind your hull. Classic 2D is the top-down map. Switch with <kbd>V</kbd> or the view button under the timer.</li>
-        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Phone: left thumb drives, right thumb drags the aim and fires on release. Gun aim returns to straight ahead on release. SPG aim stays where you left it. Tap the minimap to send allies there.</li>
+        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Phone: left thumb drives, right thumb drags the aim and fires on release. Aim stays where you left it. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
       </ul>
     </section>
     <section class="tab" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
@@ -905,15 +905,15 @@ const seen=t=>!player||t.team===player.team||!t.hidden;
 
 // ================= combat =================
 function spread(t){return (t.cls.disp||.005)+t.bloom*(t.cls.bloomK||.05)+(t.stun>0?.022:0);}
-// SPG shells fly a flat, World-of-Tanks-like arc: flight time is linear in distance,
+// SPG flight time is linear in distance (World-of-Tanks-like),
 // 0.1 s point blank to 2.0 s at maximum range (1500 m).
 function artyFlight(d){return .1+1.9*clamp(d/CLASSES.spg.maxRange,0,1);}
 // arc apex height above the ground (draw-only; the descent angle it implies also shapes the blast)
-function artyPeak(d){return 25+d*.14;}
+function artyPeak(d){return d*(.06+d*.00024);}
 function artyDisp(t,d){return 28+t.bloom*110+d*.025;}
 function reloadTime(t){return t.s.reload*(t.mods.gun>0?1.6:1)*(t.stun>0?1.3:1);}
 const STUN_MUL=.65;
-function newStats(){return {shots:0,hits:0,pens:0,dmg:0,kills:0,blocked:0,taken:0,assist:0,stunAssist:0,stunned:0,capped:0,defended:0,ram:0,spotted:new Set()};}
+function newStats(){return {shots:0,hits:0,pens:0,dmg:0,kills:0,blocked:0,taken:0,assist:0,stunAssist:0,stunned:0,capped:0,defended:0,ram:0,spotted:new Set(),splash:0,splashHits:0};}
 // Presentation is split from simulation: sim code calls fx(ev), which plays the effect here and,
 // when hosting, queues it for friends' screens so everyone sees the same shots, hits and kills.
 function fx(ev){runFx(ev);if(NET.role==='host')NET.events.push(ev);}
@@ -1019,7 +1019,7 @@ function resolveHit(sh,t,h){
     dmg=Math.max(0,Math.round(sh.dmg*.5*rand(.85,1.15)-armor*1.25));
     if(corner&&Math.random()<.45){t.mods.tracks=4;crit='Tracks';}
   }else if(res==='nopen'&&corner&&Math.random()<.22){t.mods.tracks=4;crit='Tracks';}
-  if(shooter){shooter.st.hits++;if(res==='pen')shooter.st.pens++;}
+  if(shooter){shooter.st.hits++;if(res==='pen')shooter.st.pens++;else if(res==='he'&&dmg>0){shooter.st.splash+=Math.min(dmg,t.hp);shooter.st.splashHits++;}}
   if(res!=='pen')t.st.blocked+=Math.max(0,sh.dmg-dmg);
   const wasAlive=t.alive;
   // the hit effect plays before damage so the kill effect follows it
@@ -1034,8 +1034,9 @@ function resolveHit(sh,t,h){
 // Damage and stun fall off linearly along every ray, from full at the impact point to zero at the reach.
 function blastGeom(sx,sy,tx,ty,R){
   const d=Math.max(1,hyp(tx-sx,ty-sy)),peak=artyPeak(d);
-  // e: 0 for a steep drop (above ~53 degrees, point blank), 1 for the flat long-range arcs (~32 degrees)
-  const fall=Math.atan2(4*peak,d),e=clamp((Math.cos(fall)-.6)/.25,0,1);
+  // Close shots fly flat and come in shallow (e near 1: long forward cone). Long shots are lobbed high and
+  // come down steeply (e near 0: almost a circle). e runs from 1 at a 20 degree descent to 0 at 60 degrees.
+  const fall=Math.atan2(4*peak,Math.max(d,1)),e=clamp((Math.cos(fall)-.5)/.44,0,1);
   return {dir:Math.atan2(ty-sy,tx-sx),e,fall,back:R*(1-.3*e),fwd:R*(1+1.0*e),half:lerp(1.6,.7,e)};
 }
 function blastReach(g,ang){const b=Math.abs(angDiff(g.dir,ang));return b>=g.half?g.back:g.back+(g.fwd-g.back)*(1-b/g.half);}
@@ -1075,7 +1076,7 @@ function artyImpact(s){
       if(Math.random()<.4){const k=['tracks','gun','engine','fire'][Math.floor(Math.random()*4)];if(k!=='fire'||t.fireImmune<=0){t.mods[k]={tracks:4,gun:6,engine:8,fire:5}[k];crit={tracks:'Tracks',gun:'Gun breech',engine:'Engine',fire:'Fire'}[k];}}
     }else{
       if(n>=1)continue;
-      const f=1-n;dmg=Math.round(s.dmg*.32*s.splashK*f*Math.max(0,1-t.s.armor.s/250));
+      const f=1-n;dmg=Math.round(s.dmg*.55*s.splashK*f*Math.max(0,1-t.s.armor.s/400));
       if(f>.5&&Math.random()<.3){t.mods.tracks=4;crit='Tracks';}
     }
     if(dmg<=0)continue;
@@ -1085,7 +1086,8 @@ function artyImpact(s){
     if(t===direct)ev.best=killing?'Target destroyed':'Direct hit';else if(!ev.best||ev.best==='Splash damage')ev.best=killing?'Target destroyed':'Splash damage';
     dmgs.push([t,dmg]);
   }
-  if(shooter&&ev.total>0){shooter.st.hits++;shooter.st.pens++;}
+  if(shooter){if(direct&&dmgs.some(([t])=>t===direct)){shooter.st.hits++;shooter.st.pens++;}
+    for(const[t,dmg]of dmgs)if(t!==direct){shooter.st.splash+=Math.min(dmg,t.hp);shooter.st.splashHits++;}}
   fx(ev);
   for(const[t,dmg]of dmgs)damage(t,dmg,shooter,{});
 }
@@ -1230,17 +1232,17 @@ function runFx(ev){
 // ================= input =================
 const keys=new Set();let mouse={x:0,y:0,down:false,active:false,right:false},lastInput='kb';
 const stickL={id:null,ox:0,oy:0,x:0,y:0},stickR={id:null,ox:0,oy:0,x:0,y:0,moved:false};
-// Touch aim is relative: dragging the right stick moves the aim from where the drag starts.
-// Artillery keeps its last ground point between drags. Direct-fire guns return to the default aim
-// (straight over the hull's nose, 380 units out) when the stick is released, and the next drag starts from there.
+// Touch aim is relative: dragging the right stick moves the aim from wherever it was left.
+// Artillery keeps a fixed ground point; direct-fire guns keep an offset from the hull so the aim rides along as you drive.
+// Releasing the stick fires; for direct-fire guns it also drops the scope so the camera zooms back to normal.
 const AIM_REST=380;
 let touchAimPt=null,touchOff=null,touchBase=null;
 function beginTouchAim(){
   const p=player;if(!p)return;
   if(p.cls.arty){if(!touchAimPt)touchAimPt=p.aimX!==undefined?{x:p.aimX,y:p.aimY}:{x:p.x+Math.cos(p.ta)*600,y:p.y+Math.sin(p.ta)*600};touchBase={x:touchAimPt.x,y:touchAimPt.y};}
-  else{if(!touchOff)touchOff={x:Math.cos(p.a)*AIM_REST,y:Math.sin(p.a)*AIM_REST};touchBase={x:touchOff.x,y:touchOff.y};}
+  else{if(!touchOff)touchOff={x:Math.cos(p.ta)*AIM_REST,y:Math.sin(p.ta)*AIM_REST};touchBase={x:touchOff.x,y:touchOff.y};}
 }
-function releaseTouchAim(){touchBase=null;if(player&&!player.cls.arty)touchOff=null;}
+function releaseTouchAim(){touchBase=null;if(player&&!player.cls.arty)scope=false;}
 function moveTouchAim(dx,dy){
   const p=player;if(!p||!touchBase)return;
   if(is3D()){const r=camYaw+Math.PI/2,c=Math.cos(r),sn=Math.sin(r),k=view==='chase'?1.25:1.1;const ndx=(dx*c-dy*sn)*k,ndy=(dx*sn+dy*c)*k;dx=ndx;dy=ndy;}
@@ -1595,7 +1597,7 @@ function readLocalInput(t){
   let ax=t.aimX,ay=t.aimY;
   if(lastInput==='touch'){
     if(t.cls.arty&&touchAimPt){ax=touchAimPt.x;ay=touchAimPt.y;}
-    else if(!t.cls.arty){if(touchOff&&stickR.id!==null){ax=t.x+touchOff.x;ay=t.y+touchOff.y;}else{ax=t.x+Math.cos(t.a)*AIM_REST;ay=t.y+Math.sin(t.a)*AIM_REST;}}
+    else if(!t.cls.arty&&touchOff){ax=t.x+touchOff.x;ay=t.y+touchOff.y;}
   }else if(mouse.active){const w=toWorld(mouse.x,mouse.y);ax=w.x;ay=w.y;}
   if(ax===undefined){ax=t.x+Math.cos(t.ta)*400;ay=t.y+Math.sin(t.ta)*400;}
   return {thr,turn,la,ax,ay,f:(mouse.down||keys.has(' '))&&lastInput==='kb'};
@@ -3100,7 +3102,7 @@ function showEnd(){
   persist();
   $('endReward').innerHTML=`<span class="cr">+${fmt(credits)} cr</span>`+meds.map(([n,d])=>`<span class="medal"><b>${n}</b><small>${d}</small></span>`).join('');
   const pr=stats.shots?Math.round(stats.pens/stats.shots*100):0;
-  const cells=[['Damage dealt',fmt(stats.dmg)],['Kills',stats.kills],['Spotting assist',fmt(stats.assist)],['Stun assist',`${fmt(stats.stunAssist)}${stats.stunned?` · ${stats.stunned} stunned`:''}`],['Blocked by armor',fmt(stats.blocked)],['Shots · hits · pens',`${stats.shots} · ${stats.hits} · ${stats.pens}`],['Pen rate',pr+'%'],['Enemies spotted',typeof stats.spotted==='number'?stats.spotted:stats.spotted.size],['Capture · reset',`${Math.round(stats.capped)} · ${Math.round(stats.defended)}`]];
+  const cells=[['Damage dealt',fmt(stats.dmg)],['Kills',stats.kills],['Spotting assist',fmt(stats.assist)],['Stun assist',`${fmt(stats.stunAssist)}${stats.stunned?` · ${stats.stunned} stunned`:''}`],['Blocked by armor',fmt(stats.blocked)],['Splash damage',`${fmt(stats.splash||0)}${stats.splashHits?` · ${stats.splashHits} ${stats.splashHits===1?'hit':'hits'}`:''}`],['Shots · hits · pens',`${stats.shots} · ${stats.hits} · ${stats.pens}`],['Pen rate',pr+'%'],['Enemies spotted',typeof stats.spotted==='number'?stats.spotted:stats.spotted.size],['Capture · reset',`${Math.round(stats.capped)} · ${Math.round(stats.defended)}`]];
   $('endStats').innerHTML=cells.map(([l,v])=>`<div><span>${l}</span><strong>${v}</strong></div>`).join('');
   const table=(team)=>{const list=tanks.filter(t=>t.team===team).sort((x,y)=>y.dmgDealt-x.dmgDealt);
     return `<div><div class="tcap ${team===PT?'a':'e'}">${team===PT?'Your team':'Enemy team'}</div><div class="wrap"><table><thead><tr><th>Tank</th><th>Class</th><th class="n">Damage</th><th class="n">Kills</th></tr></thead><tbody>${
@@ -3117,7 +3119,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
