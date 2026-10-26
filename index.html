@@ -1324,10 +1324,45 @@ const NET={role:'off',events:[],conns:new Map(),code:'',mpMode:'coop',sendT:0,in
 const PEER_PREFIX='steelcontact2-';
 const r1=v=>Math.round(v*10)/10,r3=v=>Math.round(v*1000)/1000;
 const mpAvailable=()=>typeof window.Peer==='function';
+// Two phones on different networks (mobile data, home Wi-Fi behind different routers) usually can't open a
+// direct link and need a relay (TURN). Several relays are listed so one being down doesn't break play:
+// Google STUN, the PeerJS public TURN, and Open Relay on ports 80/443 (UDP, TCP and TLS) which get through strict firewalls.
+// Open Relay uses time-limited credentials: user = "<expiry>:<name>", password = base64(HMAC-SHA1(secret, user)).
+function sha1(bytes){
+  const ml=bytes.length*8,len=((bytes.length+9+63)>>6)<<6,m=new Uint8Array(len);m.set(bytes);m[bytes.length]=0x80;
+  const dv=new DataView(m.buffer);dv.setUint32(len-4,ml>>>0);dv.setUint32(len-8,Math.floor(ml/2**32));
+  let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;const w=new Uint32Array(80);
+  for(let o=0;o<len;o+=64){
+    for(let i=0;i<16;i++)w[i]=dv.getUint32(o+i*4);
+    for(let i=16;i<80;i++){const x=w[i-3]^w[i-8]^w[i-14]^w[i-16];w[i]=(x<<1)|(x>>>31);}
+    let a=h0,b=h1,c=h2,d=h3,e=h4;
+    for(let i=0;i<80;i++){
+      const f=i<20?(b&c)|(~b&d):i<40?b^c^d:i<60?(b&c)|(b&d)|(c&d):b^c^d,k=i<20?0x5A827999:i<40?0x6ED9EBA1:i<60?0x8F1BBCDC:0xCA62C1D6;
+      const t=(((a<<5)|(a>>>27))+f+e+k+w[i])>>>0;e=d;d=c;c=(b<<30)|(b>>>2);b=a;a=t;
+    }
+    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;
+  }
+  const out=new Uint8Array(20),ov=new DataView(out.buffer);[h0,h1,h2,h3,h4].forEach((h,i)=>ov.setUint32(i*4,h));return out;
+}
+function hmacSha1B64(key,msg){
+  const enc=new TextEncoder();let k=enc.encode(key);if(k.length>64)k=sha1(k);
+  const kp=new Uint8Array(64);kp.set(k);const ip=kp.map(b=>b^0x36),op=kp.map(b=>b^0x5c),m=enc.encode(msg);
+  const inner=new Uint8Array(64+m.length);inner.set(ip);inner.set(m,64);
+  const outer=new Uint8Array(84);outer.set(op);outer.set(sha1(inner),64);
+  return btoa(String.fromCharCode(...sha1(outer)));
+}
+function iceServers(){
+  const user=(Math.floor(Date.now()/1000)+24*3600)+':steelcontact',cred=hmacSha1B64('openrelayprojectsecret',user),H='staticauth.openrelay.metered.ca';
+  return [
+    {urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},
+    {urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'},
+    {urls:[`turn:${H}:80`,`turn:${H}:80?transport=tcp`,`turn:${H}:443`,`turns:${H}:443?transport=tcp`],username:user,credential:cred},
+  ];
+}
 function peerOpts(){
   const q=new URLSearchParams(location.search).get('peer');
-  if(q){const[h,p]=q.split(':');return {host:h,port:+p||9000,path:'/',secure:false,debug:0};}
-  return {debug:0};
+  if(q){const[h,p]=q.split(':');return {host:h,port:+p||9000,path:'/',secure:false,debug:0,config:{iceServers:iceServers()}};}
+  return {debug:0,config:{iceServers:iceServers(),sdpSemantics:'unified-plan'}};
 }
 function genCode(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=A[Math.floor(Math.random()*A.length)];return s;}
 function myName(){return (SAVE.set.name||'Commander').slice(0,16);}
@@ -1369,11 +1404,16 @@ function joinRoom(code){
   netReset();
   let peer;try{peer=new Peer(peerOpts());}catch(e){NET.status="This browser can't make peer-to-peer connections.";renderSquad();return;}
   NET.role='client';NET.peer=peer;NET.code=code;NET.status='Connecting…';renderSquad();renderCta();
-  const fail=setTimeout(()=>{if(NET.role==='client'&&!(NET.conn&&NET.conn.open))netLeave("Couldn't connect. The host's network may block direct connections; try another network or have someone else host.");},15000);
+  NET.step='server';
+  const fail=setTimeout(()=>{if(NET.role==='client'&&!(NET.conn&&NET.conn.open))netLeave(
+    NET.step==='server'?"Couldn't reach the matchmaking server. Check this device's internet connection and try again."
+    :NET.step==='room'?"Reached the server, but the host didn't answer. Make sure the host still has the Squad tab open with the room showing, and that their screen is on."
+    :"Found the host, but the two devices couldn't link up (both relays failed or are blocked). Try switching one device between Wi-Fi and mobile data.");},30000);
   peer.on('open',id=>{
-    NET.myId=id;
+    NET.myId=id;NET.step='room';NET.status='Server reached. Looking for the room…';renderSquad();
     const conn=peer.connect(PEER_PREFIX+code.toLowerCase(),{reliable:true,serialization:'json'});
     NET.conn=conn;
+    conn.on('iceStateChanged',st=>{if(NET.role!=='client')return;if(st==='checking'||st==='connected'){NET.step='link';if(!conn.open){NET.status='Room found. Linking devices…';renderSquad();}}});
     conn.on('open',()=>{clearTimeout(fail);NET.status='Connected. Waiting for the host to deploy.';sendHello();renderSquad();renderCta();});
     conn.on('data',clientOnData);
     conn.on('close',clientLost);
@@ -3119,7 +3159,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
