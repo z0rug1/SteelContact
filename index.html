@@ -297,10 +297,68 @@ fieldset.slab{display:block}
 @media (prefers-reduced-motion:reduce){.deploy::after{animation:none}.hg-rail button,.hg-rail button::before{transition:none}}
 
 @media (prefers-reduced-motion:reduce){.card{transition:none}}
+
+/* debrief: always fits one screen; your stats and the team scores share the same space, switched by a button */
+#end{overflow:hidden;padding:max(10px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+#end .debrief{height:100%;margin:0 auto;gap:clamp(6px,2.2vh,20px);justify-content:center;min-height:0}
+#end .dhead{display:flex;flex-direction:column;gap:clamp(2px,.8vh,8px)}
+#end .dtitle{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px}
+#end .result{font-size:clamp(34px,min(13vw,13vh),112px)}
+#end .lede{font-size:clamp(12px,2.3vh,16px);line-height:1.35;flex:1 1 260px}
+#end .eyebrow{font-size:clamp(10px,1.9vh,12px)}
+#end .reward{gap:clamp(5px,1vh,10px)}
+#end .reward .cr{font-size:clamp(18px,4vh,30px)}
+#end .medal{flex-direction:row;align-items:baseline;gap:6px;padding:clamp(3px,.8vh,6px) 9px}
+#end .medal b{font-size:clamp(10px,1.8vh,12px)} #end .medal small{font-size:clamp(10px,1.8vh,11px)}
+#end .dbody{min-height:0;flex:0 1 auto;display:flex;flex-direction:column}
+#end .stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+#end .stats div{padding:clamp(5px,1.5vh,12px) clamp(7px,1.3vw,14px);gap:clamp(1px,.5vh,4px);min-width:0}
+#end .stats span{font-size:clamp(8.5px,1.75vh,11px);letter-spacing:.1em;line-height:1.25}
+#end .stats strong{font-size:clamp(15px,3.8vh,26px);line-height:1.1;white-space:nowrap}
+#end .stats em{display:block;font-style:normal;font-size:clamp(9.5px,1.8vh,12px);color:var(--muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#end .board{grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(8px,2vw,24px);min-height:0}
+#end .board .wrap{overflow:hidden}
+#end .board table{font-size:clamp(10.5px,2.1vh,13px)}
+#end .board th{padding:clamp(2px,.7vh,6px) 6px;font-size:clamp(8.5px,1.6vh,10px)}
+#end .board td{padding:clamp(2px,.75vh,6px) 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
+#end .board td:first-child{width:38%} #end .board td.n{width:16%}
+#end .tcap{font-size:clamp(10px,1.8vh,12px);margin-bottom:clamp(2px,.6vh,6px)}
+#end .row{gap:10px;flex-wrap:nowrap}
+#end .row .btn{padding-block:clamp(8px,1.8vh,13px);padding-inline:clamp(14px,3vw,32px);white-space:nowrap;min-width:0}
+@media (max-height:440px){#end .showboard .reward{display:none}}
+@media (orientation:portrait){
+  #end .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #end .stats div{padding:clamp(5px,1.1vh,10px) 8px}
+  #end .stats span{font-size:clamp(8.5px,1.35vh,10.5px);letter-spacing:.06em}
+  #end .stats strong{font-size:clamp(15px,2.7vh,22px)}
+  #end .stats em{font-size:clamp(9.5px,1.4vh,12px)}
+  #end .result{font-size:clamp(40px,12vw,84px)}
+  #end .lede{font-size:clamp(12px,1.8vh,15px)}
+  #end .reward{gap:5px}
+  #end .medal small{display:none}
+  #end .medal{padding:4px 8px}
+  #end .board{grid-template-columns:1fr}
+  #end .row .btn{flex:1 1 0;padding-inline:6px;font-size:13px}
+  #end .dhead .eyebrow{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #end .showboard .reward{display:none}
+  #end .board{gap:clamp(6px,1.4vh,14px)}
+  #end .board th:nth-child(2),#end .board td:nth-child(2){display:none}
+  #end .board td:first-child{width:56%}
+  #end .board td,#end .board th{padding-block:clamp(2px,.55vh,6px)}
+}
+
+/* landscape only on phones and tablets: portrait shows a rotate prompt over everything */
+#rotate{display:none;position:fixed;inset:0;z-index:9999;background:#171a12;color:var(--brass);flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+#rotate b{font-family:var(--display);font-size:26px;letter-spacing:.04em;color:#ebe6d2}
+#rotate span{font-size:14px;color:var(--muted)}
+#rotate svg{animation:rot 2.4s ease-in-out infinite}
+@keyframes rot{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait) and (pointer:coarse){#rotate{display:flex}}
 </style>
 
 </head><body>
 <div id="game"><canvas id="gl" aria-hidden="true"></canvas><canvas id="cv"></canvas></div>
+<div id="rotate" role="alert"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><rect x="20" y="8" width="24" height="44" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><path d="M10 40a24 24 0 0 0 20 16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M26 52l4 4-5 3" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Turn your phone sideways</b><span>Steel Contact plays in landscape only.</span></div>
 <div id="probe"></div>
 
 <div id="menu" class="hangar">
@@ -350,7 +408,7 @@ fieldset.slab{display:block}
         <li><b>View range</b>Each vehicle spots enemies only inside its view circle: Light 760 m, Medium and Sniper 600 m, Heavy 470 m, SPG 430 m. Your team shares what anyone sees.</li>
         <li><b>Sight lines</b>Inside that range, an enemy is visible when anyone on your team has a line to it that no bush, tree or smoke cuts. Cover you sit in doesn't block your own view. Within 95 m everyone is seen, cover or not.</li>
         <li><b>Firing</b>Firing reveals you for 4 s to every enemy within 1.5× its view range unless a rock or building is in between. Bushes don't hide a muzzle flash. Exception: if you're unspotted and inside a bush, firing only leaves a sound ring. Repeat shots tighten it. Being hit also shows your HP marker for 4 s.</li>
-        <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fly flat and throw a long cone ahead of the impact. Long shots are lobbed high, come down steeply and splash almost evenly all round. Flight time runs from 0.1 s point blank to 2 s at 1500 m. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. Only a direct hit counts as a penetration in your battle stats. Splash is listed separately. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
+        <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fly flat and throw a long cone ahead of the impact. Long shots are lobbed high, come down steeply and splash almost evenly all round. Flight time runs from 0.1 s point blank to 2 s at 1500 m. Shells hit rocks, walls and buildings in their path: low, close shots are stopped by cover, high lobs clear it. The reticle marks a blocked shot with a red X. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. Only a direct hit counts as a penetration in your battle stats. Splash is listed separately. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
         <li><b>Stun</b>Artillery shells stun every enemy inside a zone of the same shape, 1.75× larger, for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
         <li><b>Consumables</b>Repair kit fixes tracks, gun and engine and shakes off stun. Extinguisher puts out fire and fireproofs you for 12 s. Smoke drops a 14 s cloud that blocks sight lines.</li>
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
@@ -390,16 +448,20 @@ fieldset.slab{display:block}
 </div>
 
 <div class="overlay" id="end" hidden>
-  <div class="sheet">
-    <div class="eyebrow" id="endEyebrow">Debrief</div>
-    <p class="result" id="endTitle">Victory</p>
-    <p class="lede" id="endSub"></p>
+  <div class="sheet debrief">
+    <div class="dhead">
+      <div class="eyebrow" id="endEyebrow">Debrief</div>
+      <div class="dtitle"><p class="result" id="endTitle">Victory</p><p class="lede" id="endSub"></p></div>
+    </div>
     <div class="reward" id="endReward"></div>
-    <div class="stats" id="endStats"></div>
-    <div class="board" id="endBoard"></div>
+    <div class="dbody">
+      <div class="stats" id="endStats" role="region" aria-label="Your battle"></div>
+      <div class="board" id="endBoard" role="region" aria-label="Team scores" hidden></div>
+    </div>
     <div class="row">
       <button class="btn" id="again">Redeploy</button>
       <button class="btn ghost" id="toMenu">Garage</button>
+      <button class="btn ghost" id="endView" type="button" aria-pressed="false">Scores</button>
     </div>
   </div>
 </div>
@@ -528,6 +590,28 @@ function sfx(kind,vol=1){
 // ================= map =================
 let M=null;
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+// obstacle height in world units (metres): walls 16-24, buildings 30-62, rocks ~0.78x their radius.
+// Derived from position so every device agrees without sending it.
+function obsHeight(o){
+  const hsh=v=>{const x=Math.sin(v)*43758.5453;return x-Math.floor(x);};
+  if(o.k==='rock')return o.r*.78;  // matches the drawn rock: centre at .18r, icosahedron top .85 x .7r
+  const r=hsh(o.x*12.9898+o.y*78.233+o.w*3.7+o.h*1.3),wall=Math.min(o.w,o.h)<45;
+  return wall?16+8*r:30+32*r;
+}
+// First point where an artillery shell's arc runs into a rock, wall or building, or null if the path is clear.
+// The arc rises from the muzzle as h = 4*peak*p*(1-p), so flat close shots hit cover and high lobs clear it.
+function artyPathHit(sx,sy,tx,ty,peak){
+  const d=hyp(tx-sx,ty-sy);if(d<1)return null;
+  const x0=Math.min(sx,tx)-70,x1=Math.max(sx,tx)+70,y0=Math.min(sy,ty)-70,y1=Math.max(sy,ty)+70;
+  const near=obstacles.filter(o=>{const ox=o.k==='rock'?o.x-o.r:o.x,oy=o.k==='rock'?o.y-o.r:o.y,ow=o.k==='rock'?o.r*2:o.w,oh=o.k==='rock'?o.r*2:o.h;return ox<x1&&ox+ow>x0&&oy<y1&&oy+oh>y0;});
+  if(!near.length)return null;
+  const n=Math.ceil(d/6);
+  for(let i=1;i<=n;i++){
+    const p=i/n,h=4*peak*p*(1-p),x=sx+(tx-sx)*p,y=sy+(ty-sy)*p;
+    for(const o of near)if(h<(o.h3||obsHeight(o))&&obsDist(o,x,y)<=0)return {x,y,p,o};
+  }
+  return null;
+}
 function obsDist(o,x,y){
   if(o.k==='rock')return hyp(x-o.x,y-o.y)-o.r;
   const dx=Math.max(o.x-x,0,x-(o.x+o.w)),dy=Math.max(o.y-y,0,y-(o.y+o.h));
@@ -777,6 +861,7 @@ function newBattle(opts={}){
   NET.ghost=false;
   cfg={mode:C.mode,map:C.map,diff:DIFF[C.diffKey]||DIFF.veteran,diffKey:C.diffKey,size:C.size,sky:C.sky,seed:C.seed,raw:C};
   M=genMap(cfg.map,cfg.seed);obstacles=M.obstacles;bushes=M.bushes;trees=M.trees;
+  for(const o of obstacles)if(o.h3===undefined)o.h3=obsHeight(o);
   terrain=renderTerrain(M);bushLayer=renderBushes(bushes);buildNav();
   decal=document.createElement('canvas');decal.width=W/2;decal.height=H/2;dctx=decal.getContext('2d');dctx.scale(.5,.5);
   rings=[];craters=[];clouds=[];pings=[];shells=[];parts=[];floats=[];feed=[];arcs=[];banner=null;battleTime=0;timeLeft=360;endShown=false;deadT=0;spectate=null;
@@ -937,6 +1022,7 @@ function fire(t){
     let d=hyp(tx-t.x,ty-t.y);if(d>t.cls.maxRange){tx=t.x+(tx-t.x)/d*t.cls.maxRange;ty=t.y+(ty-t.y)/d*t.cls.maxRange;d=t.cls.maxRange;}
     const dr=artyDisp(t,d)*Math.sqrt(Math.random()),da=Math.random()*TAU;tx+=Math.cos(da)*dr;ty+=Math.sin(da)*dr;
     shells.push({arty:true,ammo:am,sx:mx,sy:my,tx,ty,x:mx,y:my,h:0,t:0,T:artyFlight(d),peak:artyPeak(d),owner:t,team:t.team,dmg:t.s.dmg*am.dmg,splash:t.cls.splash*(am.splash>.9?1:.55),splashK:am.splash,masked:fromHide,dist:0});
+    {const sh=shells[shells.length-1],hit=artyPathHit(sh.sx,sh.sy,sh.tx,sh.ty,sh.peak);if(hit)sh.stopP=hit.p;}
   }else{
     const am=AMMO[t.ammo],sp2=t.cls.shellSpeed*am.spd;
     shells.push({x:mx,y:my,px:mx,py:my,vx:Math.cos(a)*sp2,vy:Math.sin(a)*sp2,spd:sp2,maxR:t.cls.maxRange,owner:t,team:t.team,pen:t.s.pen*am.pen,dmg:t.s.dmg*am.dmg,ammo:am,dist:0,masked:fromHide,h0:HH[t.cls.key]*1.35});
@@ -1229,6 +1315,8 @@ function runFx(ev){
   }
 }
 
+addEventListener('pagehide',()=>{if(NET.role==='host'&&mode!=='menu')try{broadcast({t:'hostleft'});}catch(_){}});
+function lockLandscape(){try{const o=screen.orientation;if(o&&o.lock&&!lockLandscape.done){lockLandscape.done=true;o.lock('landscape').catch(()=>{});}}catch(_){}}
 // ================= input =================
 const keys=new Set();let mouse={x:0,y:0,down:false,active:false,right:false},lastInput='kb';
 const stickL={id:null,ox:0,oy:0,x:0,y:0},stickR={id:null,ox:0,oy:0,x:0,y:0,moved:false};
@@ -1286,7 +1374,7 @@ function uiHit(x,y){
   return false;
 }
 cv.addEventListener('pointerdown',e=>{
-  initAudio();
+  initAudio();lockLandscape();
   if(mode!=='play')return;
   if(uiHit(e.clientX,e.clientY)){e.preventDefault();return;}
   if(e.pointerType==='mouse'){mouse.x=e.clientX;mouse.y=e.clientY;mouse.active=true;lastInput='kb';if(e.button===0){mouse.down=true;doFire();}if(e.button===2)mouse.right=true;return;}
@@ -1373,62 +1461,219 @@ function netErrText(e){
   return 'Connection error ('+e.type+').';
 }
 function netReset(status){
-  try{if(NET.peer)NET.peer.destroy();}catch(_){}
+  // switch off first, so close events fired while tearing down are ignored
+  const oldConn=NET.conn,oldConns=[...NET.conns.values()],oldRelays=NET.relays||[],cancel=NET.relayCancel,oldPeer=NET.peer;
+  NET.role='off';NET.conn=null;NET.conns=new Map();NET.relays=[];NET.rconns=new Map();NET.relayCancel=null;NET.peerFailed=false;NET.rejoin=null;
+  try{if(cancel)cancel();}catch(_){}
+  try{if(oldConn&&oldConn.relay)oldConn.close();}catch(_){}
+  for(const c of oldConns)try{if(c.conn.relay)c.conn.close();}catch(_){}
+  for(const mq of oldRelays)mq.close();
+  NET.peer=null;
+  // give a just-sent goodbye a moment to leave before the direct links are torn down
+  if(oldPeer)setTimeout(()=>{try{oldPeer.destroy();}catch(_){}},300);
   NET.role='off';NET.peer=null;NET.conn=null;NET.conns=new Map();NET.events=[];NET.lobby=null;NET.code='';NET.myId=null;NET.status=status||'';NET.overlay=false;
 }
 function netLeave(status){netReset(status);renderSquad();renderCta();}
+// ---- backup relay ----
+// When the two devices can't open a direct WebRTC link (and the TURN relays fail too), game messages go through
+// public MQTT brokers over secure WebSockets on ordinary HTTPS ports. Slower than a direct link, but it gets through
+// almost any network. The host listens on every broker it can reach; a friend uses the first broker the host answers on.
+const RELAY_BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081/mqtt'];
+const RELAY_NS='stc2-7f3k/';
+function relayBrokers(){const q=new URLSearchParams(location.search).get('relay');return q?q.split(','):RELAY_BROKERS;}
+const TE=new TextEncoder(),TD=new TextDecoder();
+function mqttStr(s){const b=TE.encode(s);return [b.length>>8,b.length&255,...b];}
+function mqttPkt(type,body){const len=[];let n=body.length;do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;len.push(d);}while(n>0);const out=new Uint8Array(1+len.length+body.length);out[0]=type;out.set(len,1);out.set(body,1+len.length);return out;}
+// minimal MQTT 3.1.1 client: connect, subscribe, publish (QoS 0), keepalive
+class Mqtt{
+  constructor(url,onMsg){this.url=url;this.onMsg=onMsg;this.buf=new Uint8Array(0);this.pid=1;this.ok=false;this.closed=false;this.onclose=null;}
+  connect(timeout=7000){return new Promise((res,rej)=>{
+    let ws;try{ws=new WebSocket(this.url,['mqtt']);}catch(e){rej(e);return;}
+    this.ws=ws;ws.binaryType='arraybuffer';
+    const to=setTimeout(()=>{rej(new Error('timeout'));try{ws.close();}catch(_){}},timeout);
+    ws.onopen=()=>{const id='sc'+Math.random().toString(36).slice(2,12);ws.send(mqttPkt(0x10,new Uint8Array([...mqttStr('MQTT'),4,2,0,30,...mqttStr(id)])));};
+    ws.onmessage=e=>this.feed(new Uint8Array(e.data),()=>{if(this.ok)return;clearTimeout(to);this.ok=true;this.ping=setInterval(()=>{try{ws.send(new Uint8Array([0xC0,0]));}catch(_){}},20000);res(this);});
+    ws.onerror=()=>{};
+    ws.onclose=()=>{clearTimeout(to);clearInterval(this.ping);const was=this.ok;this.ok=false;this.closed=true;if(!was)rej(new Error('closed'));else if(this.onclose)this.onclose();};
+  });}
+  feed(chunk,onConnack){
+    const b=new Uint8Array(this.buf.length+chunk.length);b.set(this.buf);b.set(chunk,this.buf.length);let p=0;
+    while(p<b.length){
+      let m=1,n=0,i=p+1,d,full=true;
+      do{if(i>=b.length){full=false;break;}d=b[i++];n+=(d&127)*m;m*=128;}while(d&128);
+      if(!full||i+n>b.length)break;
+      const type=b[p]>>4,body=b.subarray(i,i+n);
+      if(type===2&&body[1]===0)onConnack();
+      else if(type===3){const tl=(body[0]<<8)|body[1],topic=TD.decode(body.subarray(2,2+tl));let q=2+tl;if((b[p]>>1)&3)q+=2;try{this.onMsg(topic,TD.decode(body.subarray(q)));}catch(e){console.error(e);}}
+      p=i+n;
+    }
+    this.buf=b.slice(p);
+  }
+  sub(topic){try{this.ws.send(mqttPkt(0x82,new Uint8Array([this.pid>>8,this.pid&255,...mqttStr(topic),0])));}catch(_){}this.pid=(this.pid%65000)+1;}
+  pub(topic,str){if(!this.ok)return false;const t=mqttStr(topic),pl=TE.encode(str),body=new Uint8Array(t.length+pl.length);body.set(t);body.set(pl,t.length);try{this.ws.send(mqttPkt(0x30,body));return true;}catch(_){return false;}}
+  close(){const was=this.ok;this.closed=true;this.ok=false;clearInterval(this.ping);this.onclose=null;try{if(was)this.ws.send(new Uint8Array([0xE0,0]));this.ws.close();}catch(_){}}
+}
+// looks like a PeerJS DataConnection to the rest of the game: open, send(), close(), on('open'|'data'|'close')
+class RelayConn{
+  constructor(mq,outTopic,peer,selfId){this.mq=mq;this.out=outTopic;this.peer=peer;this.self=selfId;this.open=false;this.dead=false;this.h={};this.seen=performance.now();this.relay=true;}
+  on(ev,fn){(this.h[ev]=this.h[ev]||[]).push(fn);}
+  emit(ev,a){for(const f of this.h[ev]||[])try{f(a);}catch(e){console.error(e);}}
+  send(obj){if(this.open)this.mq.pub(this.out,JSON.stringify({f:this.self,k:'d',d:obj}));}
+  ka(){this.mq.pub(this.out,JSON.stringify({f:this.self,k:'ka'}));}
+  close(){if(this.dead)return;this.mq.pub(this.out,JSON.stringify({f:this.self,k:'bye'}));this.kill();}
+  kill(){if(this.dead)return;this.dead=true;this.open=false;this.emit('close');}
+}
+function relayHostStart(code){
+  NET.relays=[];NET.rconns=new Map();
+  for(const url of relayBrokers()){
+    const mq=new Mqtt(url,(topic,txt)=>relayHostMsg(mq,txt));
+    mq.connect().then(()=>{
+      if(NET.role!=='host'||NET.code!==code){mq.close();return;}
+      mq.sub(RELAY_NS+code+'/h');NET.relays.push(mq);
+      mq.onclose=()=>{NET.relays=NET.relays.filter(x=>x!==mq);for(const[id,rc]of NET.rconns)if(rc.mq===mq){NET.rconns.delete(id);rc.kill();}};
+      if(NET.peerFailed){NET.status='Room open through the backup relay. Send friends the code.';}
+      renderSquad();
+    }).catch(()=>{});
+  }
+}
+function relayHostMsg(mq,txt){
+  let m;try{m=JSON.parse(txt);}catch(_){return;}
+  if(!m||typeof m.f!=='string'||NET.role!=='host')return;
+  const id='r:'+m.f.slice(0,40);let rc=NET.rconns.get(id);
+  if(m.k==='hi'){
+    // a friend says hi on every broker it reaches; answer only on the first one, and keep using that one
+    if(rc&&!rc.dead){if(rc.mq===mq){rc.seen=performance.now();mq.pub(rc.out,JSON.stringify({f:'host',k:'ok'}));}return;}
+    rc=new RelayConn(mq,RELAY_NS+NET.code+'/c/'+m.f.slice(0,40),id,'host');NET.rconns.set(id,rc);
+    hostAccept(rc);
+    mq.pub(rc.out,JSON.stringify({f:'host',k:'ok'}));rc.open=true;rc.emit('open');return;
+  }
+  if(!rc||rc.dead||rc.mq!==mq)return;
+  rc.seen=performance.now();
+  if(m.k==='d')rc.emit('data',m.d);else if(m.k==='bye'){NET.rconns.delete(id);rc.kill();}
+}
+// friend side: returns a cancel function
+function relayJoin(code,onOk,onFail){
+  const me=Math.random().toString(36).slice(2,12),inT=RELAY_NS+code+'/c/'+me,outT=RELAY_NS+code+'/h',mqs=[];let done=false;
+  const hi=()=>{for(const mq of mqs)mq.pub(outT,JSON.stringify({f:me,k:'hi'}));};
+  const stop=()=>{done=true;clearInterval(hiT);clearTimeout(to);};
+  const finish=mq=>{
+    if(done)return;stop();for(const x of mqs)if(x!==mq)x.close();
+    if(!mq){onFail();return;}
+    const rc=new RelayConn(mq,outT,'host',me);rc.open=true;
+    mq.onclose=()=>rc.kill();
+    mq.onMsg=(t,txt)=>{let m;try{m=JSON.parse(txt);}catch(_){return;}if(!m)return;rc.seen=performance.now();if(m.k==='d')rc.emit('data',m.d);else if(m.k==='bye')rc.kill();};
+    onOk(rc);
+  };
+  for(const url of relayBrokers()){
+    const mq=new Mqtt(url,(t,txt)=>{let m;try{m=JSON.parse(txt);}catch(_){return;}if(m&&m.k==='ok')finish(mq);});
+    mq.connect().then(()=>{if(done){mq.close();return;}mqs.push(mq);mq.sub(inT);mq.pub(outT,JSON.stringify({f:me,k:'hi'}));}).catch(()=>{});
+  }
+  const hiT=setInterval(hi,1500),to=setTimeout(()=>finish(null),14000);
+  return ()=>{if(done)return;stop();for(const x of mqs)x.close();};
+}
+// keepalives and dead-link detection for relay links, plus a silence watchdog for direct links during a battle
+// (a phone that locks its screen stops sending; WebRTC can take a long time to notice).
+let netWatchLast=performance.now();
+setInterval(()=>{
+  const now=performance.now(),gap=now-netWatchLast;netWatchLast=now;
+  if(gap>3000||document.hidden){for(const c of NET.conns.values())c.rx=now;NET.rx=now;return;}  // this tab was asleep; don't judge others by it
+  if(NET.role==='host'){
+    if(NET.rconns)for(const[id,rc]of NET.rconns){if(rc.dead){NET.rconns.delete(id);continue;}rc.ka();if(now-rc.seen>9000){NET.rconns.delete(id);rc.kill();}}
+    if(mode==='play'||mode==='pause')for(const[id,c]of[...NET.conns])if(c.tankRef&&!c.conn.relay&&now-(c.rx||now)>10000){try{c.conn.close();}catch(_){}hostDrop(id);}
+  }else if(NET.role==='client'&&NET.conn&&NET.conn.open){
+    if(NET.conn.relay){NET.conn.ka();if(now-NET.conn.seen>9000)NET.conn.kill();}
+    else if((mode==='play'||mode==='pause')&&now-(NET.rx||now)>7000){const c=NET.conn;NET.conn=null;try{c.close();}catch(_){}NET.role='client';clientLost();}
+    else try{NET.conn.send({t:'ka'});}catch(_){}
+  }
+},1000);
+// a stable id for this device, so a dropped player can take their own tank back
+function netToken(){try{let t=localStorage.getItem('steel-contact-token');if(!t){t=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('steel-contact-token',t);}return t;}catch(_){return NET.tok||(NET.tok=Math.random().toString(36).slice(2));}}
+
+// a new link to the host, direct or relayed. During a battle a newcomer stays 'pending' until its hello shows
+// whether it is a dropped player coming back for their own tank.
+function hostAccept(conn){
+  conn.on('open',()=>{
+    if(NET.conns.size>=13){conn.send({t:'full',why:'full'});setTimeout(()=>{try{conn.close();}catch(_){}},400);return;}
+    const c={conn,name:'Player',tank:'medium',up:{},tankRef:null,rx:performance.now(),pending:mode!=='menu'};
+    NET.conns.set(conn.peer,c);
+    if(c.pending)setTimeout(()=>{if(c.pending&&NET.conns.get(conn.peer)===c){try{conn.send({t:'full',why:'battle'});}catch(_){}setTimeout(()=>{try{conn.close();}catch(_){}},400);NET.conns.delete(conn.peer);}},8000);
+    else hostBroadcastLobby();
+  });
+  conn.on('data',d=>hostOnData(conn,d));
+  conn.on('close',()=>hostDrop(conn.peer));
+  conn.on('error',()=>hostDrop(conn.peer));
+}
 function hostRoom(){
   if(!mpAvailable())return;
   netReset();
   const code=genCode();
   let peer;try{peer=new Peer(PEER_PREFIX+code.toLowerCase(),peerOpts());}catch(e){NET.status="This browser can't make peer-to-peer connections.";renderSquad();return;}
   NET.role='host';NET.peer=peer;NET.code=code;NET.status='Opening room…';renderSquad();renderCta();
-  peer.on('open',()=>{NET.status='Room open. Send friends the code.';renderSquad();});
-  peer.on('connection',conn=>{
-    conn.on('open',()=>{
-      if(NET.conns.size>=13||mode!=='menu'){conn.send({t:'full',why:mode!=='menu'?'battle':'full'});setTimeout(()=>{try{conn.close();}catch(_){}} ,400);return;}
-      NET.conns.set(conn.peer,{conn,name:'Player',tank:'medium',up:{},tankRef:null});
-      hostBroadcastLobby();
-    });
-    conn.on('data',d=>hostOnData(conn,d));
-    conn.on('close',()=>hostDrop(conn.peer));
-    conn.on('error',()=>hostDrop(conn.peer));
-  });
-  peer.on('error',e=>{if(e.type==='unavailable-id'){hostRoom();return;}if(NET.role==='host'&&e.type!=='peer-unavailable'){NET.status=netErrText(e);renderSquad();}});
+  if(!new URLSearchParams(location.search).has('norelay'))relayHostStart(code);
+  peer.on('open',()=>{NET.peerFailed=false;NET.status='Room open. Send friends the code.';renderSquad();});
+  peer.on('connection',conn=>hostAccept(conn));
+  peer.on('error',e=>{if(e.type==='unavailable-id'){hostRoom();return;}if(NET.role==='host'&&e.type!=='peer-unavailable'){NET.peerFailed=true;NET.status=NET.relays.length?'Room open through the backup relay. Send friends the code.':netErrText(e);renderSquad();}});
   peer.on('disconnected',()=>{try{if(NET.peer===peer)peer.reconnect();}catch(_){}});
 }
-function joinRoom(code){
+// opts.onFail(msg): used while reconnecting mid-battle, instead of dropping back to the Squad tab
+function joinRoom(code,opts={}){
   code=(code||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(code.length!==5){NET.status='Enter the 5-character room code.';renderSquad();return;}
   if(!mpAvailable())return;
-  netReset();
-  let peer;try{peer=new Peer(peerOpts());}catch(e){NET.status="This browser can't make peer-to-peer connections.";renderSquad();return;}
-  NET.role='client';NET.peer=peer;NET.code=code;NET.status='Connecting…';renderSquad();renderCta();
-  NET.step='server';
-  const fail=setTimeout(()=>{if(NET.role==='client'&&!(NET.conn&&NET.conn.open))netLeave(
-    NET.step==='server'?"Couldn't reach the matchmaking server. Check this device's internet connection and try again."
-    :NET.step==='room'?"Reached the server, but the host didn't answer. Make sure the host still has the Squad tab open with the room showing, and that their screen is on."
-    :"Found the host, but the two devices couldn't link up (both relays failed or are blocked). Try switching one device between Wi-Fi and mobile data.");},30000);
+  {const keep=NET.rejoin;netReset();NET.rejoin=keep;}
+  const q=new URLSearchParams(location.search),quiet=!!opts.onFail;
+  const show=t=>{NET.status=t;if(!quiet)renderSquad();};
+  let peer=null;
+  if(!q.has('nortc')){try{peer=new Peer(peerOpts());}catch(e){peer=null;}}
+  NET.role='client';NET.peer=peer;NET.code=code;NET.step='server';NET.rx=performance.now();
+  show('Connecting…');if(!quiet)renderCta();
+  let settled=false,relayTried=false,roomMissing=false;
+  const giveUp=msg=>{if(settled||NET.role!=='client'||NET.code!==code)return;settled=true;clearTimeout(fail);if(opts.onFail){netReset();opts.onFail(msg);}else netLeave(msg);};
+  const failMsg=()=>roomMissing?'No room with that code. Check it with the host.'
+    :NET.step==='server'?"Couldn't reach the matchmaking server or the backup relay. Check this device's internet connection."
+    :NET.step==='room'?"Reached the server, but the host didn't answer. Make sure the host still has the room open and their screen is on."
+    :"Found the host, but the devices couldn't link, even through the backup relay. Try another network on one device.";
+  const linked=(conn,how)=>{
+    if(settled||NET.role!=='client'||NET.code!==code){try{conn.close();}catch(_){}return;}
+    settled=true;clearTimeout(fail);
+    if(NET.conn&&NET.conn!==conn){try{NET.conn.close();}catch(_){}}
+    try{if(NET.relayCancel&&!conn.relay)NET.relayCancel();}catch(_){}NET.relayCancel=null;
+    NET.conn=conn;NET.rx=performance.now();NET.via=how;
+    conn.on('data',d=>{if(NET.conn===conn){NET.rx=performance.now();clientOnData(d);}});
+    conn.on('close',()=>{if(NET.conn===conn)clientLost();});
+    conn.on('error',()=>{if(NET.conn===conn)clientLost();});
+    show(how==='relay'?'Connected through the backup relay. Waiting for the host to deploy.':'Connected. Waiting for the host to deploy.');
+    sendHello();if(!quiet)renderCta();
+  };
+  const tryRelay=()=>{
+    if(relayTried||settled||NET.role!=='client'||NET.code!==code||q.has('norelay'))return;
+    relayTried=true;show(NET.step==='link'?'Direct link failed. Trying the backup relay…':'Trying the backup relay…');
+    NET.relayCancel=relayJoin(code,rc=>linked(rc,'relay'),()=>giveUp(failMsg()));
+  };
+  const fail=setTimeout(()=>{if(!relayTried)tryRelay();else giveUp(failMsg());},q.has('norelay')?30000:8000);
+  if(!peer){tryRelay();return;}
   peer.on('open',id=>{
-    NET.myId=id;NET.step='room';NET.status='Server reached. Looking for the room…';renderSquad();
+    NET.myId=id;if(NET.step==='server')NET.step='room';if(!relayTried)show('Server reached. Looking for the room…');
     const conn=peer.connect(PEER_PREFIX+code.toLowerCase(),{reliable:true,serialization:'json'});
-    NET.conn=conn;
-    conn.on('iceStateChanged',st=>{if(NET.role!=='client')return;if(st==='checking'||st==='connected'){NET.step='link';if(!conn.open){NET.status='Room found. Linking devices…';renderSquad();}}});
-    conn.on('open',()=>{clearTimeout(fail);NET.status='Connected. Waiting for the host to deploy.';sendHello();renderSquad();renderCta();});
-    conn.on('data',clientOnData);
-    conn.on('close',clientLost);
-    conn.on('error',clientLost);
+    if(!NET.conn)NET.conn=conn;
+    conn.on('iceStateChanged',st=>{if(settled)return;if(st==='checking'||st==='connected'){NET.step='link';if(!relayTried)show('Room found. Linking devices…');}if(st==='failed')tryRelay();});
+    conn.on('open',()=>linked(conn,'direct'));
+    conn.on('error',()=>{if(!settled)tryRelay();});
   });
-  peer.on('error',e=>{clearTimeout(fail);if(NET.role==='client')netLeave(netErrText(e));});
+  peer.on('error',e=>{
+    if(settled)return;
+    if(e.type==='peer-unavailable')roomMissing=true;
+    if(q.has('norelay'))giveUp(netErrText(e));else tryRelay();
+  });
 }
-function sendHello(){if(NET.role==='client'&&NET.conn&&NET.conn.open)NET.conn.send({t:'hello',name:myName(),tank:SAVE.set.tank,up:upOf(SAVE.set.tank)});}
+function sendHello(){if(NET.role==='client'&&NET.conn&&NET.conn.open)NET.conn.send({t:'hello',name:myName(),tank:SAVE.set.tank,up:upOf(SAVE.set.tank),token:netToken()});}
 function lobbyPlayers(){
   const list=[{id:'host',name:myName(),tank:SAVE.set.tank,up:upOf(SAVE.set.tank),host:true}];
-  for(const[id,c]of NET.conns)list.push({id,name:c.name,tank:c.tank,up:c.up});
+  for(const[id,c]of NET.conns)if(!c.pending)list.push({id,name:c.name,tank:c.tank,up:c.up});
   list.forEach((p,i)=>p.team=NET.mpMode==='versus'?i%2:0);
   return list;
 }
-function broadcast(m){for(const c of NET.conns.values())if(c.conn.open)c.conn.send(m);}
+function broadcast(m){for(const c of NET.conns.values())if(c.conn.open&&!c.pending)c.conn.send(m);}
 function hostBroadcastLobby(){
   if(NET.role!=='host')return;
   const ps=lobbyPlayers();
@@ -1438,7 +1683,20 @@ function hostBroadcastLobby(){
 function sanitizeUp(u){u=u||{};const f=v=>clamp(Math.floor(+v||0),0,3);return {gun:f(u.gun),armor:f(u.armor),engine:f(u.engine)};}
 function hostOnData(conn,d){
   const c=NET.conns.get(conn.peer);if(!c||!d||typeof d!=='object')return;
-  if(d.t==='hello'){c.name=String(d.name||'Player').replace(/[<>&"]/g,'').slice(0,16)||'Player';c.tank=CLASSES[d.tank]?d.tank:'medium';c.up=sanitizeUp(d.up);if(mode==='menu')hostBroadcastLobby();return;}
+  c.rx=performance.now();
+  if(d.t==='hello'){
+    c.name=String(d.name||'Player').replace(/[<>&"]/g,'').slice(0,16)||'Player';c.tank=CLASSES[d.tank]?d.tank:'medium';c.up=sanitizeUp(d.up);c.token=String(d.token||'').slice(0,40);
+    if(c.pending){
+      // same device still listed on an old link the host hasn't noticed is dead: drop that one first
+      if(c.token)for(const[id,o]of[...NET.conns])if(o!==c&&o.token===c.token&&o.tankRef){try{o.conn.close();}catch(_){}hostDrop(id);}
+      const t=c.token&&(mode==='play'||mode==='pause'||mode==='over')&&tanks.find(t=>t.reclaim&&t.reclaim.token===c.token);
+      if(t&&mode!=='over')hostRejoin(conn,c,t);
+      else{try{conn.send({t:'full',why:'battle'});}catch(_){}NET.conns.delete(conn.peer);setTimeout(()=>{try{conn.close();}catch(_){}},400);}
+      return;
+    }
+    if(mode==='menu')hostBroadcastLobby();return;
+  }
+  if(c.pending)return;
   const t=c.tankRef;if(!t||mode==='menu')return;
   if(d.t==='in'){if(t.remote)t.remote.inp={thr:clamp(+d.thr||0,-1,1),turn:clamp(+d.turn||0,-1,1),la:!!d.la,ax:+d.ax||t.x,ay:+d.ay||t.y,f:!!d.f};return;}
   if(d.t==='act'&&t.alive&&mode==='play'){
@@ -1450,9 +1708,22 @@ function hostOnData(conn,d){
 }
 function hostDrop(id){
   const c=NET.conns.get(id);if(!c)return;NET.conns.delete(id);
+  if(c.conn.relay&&NET.rconns)NET.rconns.delete(id);
   const t=c.tankRef;
-  if(t&&mode!=='menu'&&t.alive){t.remote=null;t.human=null;t.ai=makeTank(t.team,t.cls.key,t.x,t.y,t.name,false,{}).ai;assignLanes();fx({k:'float',x:t.x,y:t.y-34,text:t.name.toUpperCase()+' LEFT · BOT TAKES OVER',color:'#e2b540',size:11});}
+  if(t&&mode!=='menu'){
+    // a bot drives until the player comes back; their device token lets them take the tank back this battle
+    t.reclaim={token:c.token||'',human:t.human,name:c.name};t.remote=null;t.human=null;
+    if(t.alive){t.ai=makeTank(t.team,t.cls.key,t.x,t.y,t.name,false,{}).ai;assignLanes();fx({k:'float',x:t.x,y:t.y-34,text:t.name.toUpperCase()+' DROPPED · BOT DRIVING',color:'#e2b540',size:11});}
+  }
   if(mode==='menu')hostBroadcastLobby();else{renderSquad();}
+}
+function hostRejoin(conn,c,t){
+  c.pending=false;c.tankRef=t;
+  t.human=t.reclaim.human;t.reclaim=null;t.ai=null;t.remote={inp:null,fire:0};
+  if(NET.role!=='client')assignLanes();
+  conn.send({t:'start',cfg:NET.cfg,roster:NET.roster,me:t.human,rejoin:{trees:trees.map((tr,i)=>tr.alive?-1:i).filter(i=>i>=0)}});
+  if(t.alive)fx({k:'float',x:t.x,y:t.y-34,text:t.name.toUpperCase()+' RECONNECTED',color:'#63d28d',size:11});
+  renderSquad();
 }
 function hostStart(){
   if(NET.role!=='host')return;
@@ -1462,6 +1733,7 @@ function hostStart(){
     size:perTeam>5?7:(st.size===7?7:5),sky:st.sky==='random'||!st.sky?['day','day','dusk','overcast'][Math.floor(Math.random()*4)]:st.sky,seed:Math.floor(Math.random()*1e9)};
   initAudio();menu.hidden=true;end.hidden=true;pause.hidden=true;
   const roster=newBattle({cfg:C,humans,me:'host'});
+  NET.cfg=C;NET.roster=roster;
   last=performance.now();
   for(const[id,c]of NET.conns){c.tankRef=tanks.find(t=>t.human===id)||null;if(c.conn.open)c.conn.send({t:'start',cfg:C,roster,me:id});}
   NET.events=[];NET.sendT=0;
@@ -1469,8 +1741,17 @@ function hostStart(){
 function clientOnData(d){
   if(!d||typeof d!=='object')return;
   if(d.t==='lobby'){NET.lobby=d;NET.mpMode=d.mode;if(mode==='menu'){renderSquad();renderCta();}return;}
+  if(d.t==='hostleft'){NET.rejoin=null;clientGiveUp('');return;}
+  if(d.t==='full'&&NET.rejoin){const R=NET.rejoin;netReset();NET.rejoin=R;NET.ghost=true;
+    if(d.why==='battle'){NET.rejoin=null;clientGiveUp('The host no longer has your tank.');}else setTimeout(()=>{if(NET.rejoin===R)clientRejoin(R.code);},1500);return;}
   if(d.t==='full'){netLeave(d.why==='battle'?'That squad is in a battle. Try again when it ends.':d.why==='closed'?'The host closed the room.':'That room is full.');return;}
-  if(d.t==='start'){initAudio();menu.hidden=true;end.hidden=true;pause.hidden=true;$('deadbar').hidden=true;newBattle({cfg:d.cfg,roster:d.roster,me:d.me});last=performance.now();return;}
+  if(d.t==='start'){
+    initAudio();menu.hidden=true;end.hidden=true;pause.hidden=true;$('deadbar').hidden=true;
+    newBattle({cfg:d.cfg,roster:d.roster,me:d.me});last=performance.now();
+    if(d.rejoin){for(const i of d.rejoin.trees||[]){const tr=trees[i];if(tr&&tr.alive)knockTree(tr,0);}
+      NET.rejoin=null;setBanner('Reconnected','You have your tank back','#63d28d');}
+    return;
+  }
   if(d.t==='s'){if(tanks.length&&(mode==='play'||mode==='over'||mode==='pause'))applySnap(d);return;}
   if(d.t==='end'){
     if(player&&d.st){player.st=d.st;stats=d.st;}
@@ -1481,8 +1762,30 @@ function clientOnData(d){
 function clientLost(){
   if(NET.role!=='client')return;
   const inBattle=(mode==='play'||mode==='pause')&&tanks.length;
+  if(inBattle){clientRejoin(NET.code);return;}
   netReset('Disconnected from the host.');NET.ghost=inBattle;
   if(inBattle){result={winner:-1,reason:'host'};mode='over';$('pause').hidden=true;setTimeout(showEnd,600);}
+  renderSquad();renderCta();
+}
+// Lost the host mid-battle: keep the battle on screen and keep trying the same room for 60 s.
+// The host gives the tank back when the device token matches; meanwhile a bot drives it.
+function clientRejoin(code){
+  if(!NET.rejoin)NET.rejoin={code,until:performance.now()+60000,n:0};
+  const R=NET.rejoin;
+  netReset();NET.ghost=true;NET.rejoin=R;
+  const left=Math.max(0,Math.ceil((R.until-performance.now())/1000));
+  if(left<=0||mode==='menu'){NET.rejoin=null;clientGiveUp('Lost the connection to the host.');return;}
+  R.n++;setBanner('Connection lost',`Reconnecting… ${left} s left`,'#ff8a6e');
+  joinRoom(code,{onFail:msg=>{
+    if(!NET.rejoin)return;NET.ghost=true;
+    if(/^No room/.test(msg)){R.gone=(R.gone||0)+1;if(R.gone>=2){NET.rejoin=null;clientGiveUp('The host closed the room.');return;}}
+    setTimeout(()=>{if(NET.rejoin===R&&(mode==='play'||mode==='pause'))clientRejoin(code);},1500);
+  }});
+}
+function clientGiveUp(msg){
+  netReset('Disconnected from the host.');NET.ghost=true;
+  if((mode==='play'||mode==='pause')&&tanks.length){result={winner:-1,reason:'host'};mode='over';$('pause').hidden=true;setTimeout(showEnd,600);}
+  if(msg)setBanner('Disconnected',msg,'#ff8a6e');
   renderSquad();renderCta();
 }
 function netSendInput(inp){
@@ -1503,7 +1806,7 @@ function netTick(dt){
   NET.sendT-=dt;if(NET.sendT>0)return;NET.sendT=1/15;
   const tk=tanks.map(packTank),sh=shells.map(packShell),b=bases.map(b=>[r1(b.pts[0]),r1(b.pts[1])]),rg=rings.map(r=>[r.team,r1(r.x),r1(r.y),r1(r.r),r1(r.life),r.max]);
   const ev=NET.events;NET.events=[];
-  for(const c of NET.conns.values()){if(!c.conn.open)continue;try{c.conn.send({t:'s',tl:r1(timeLeft),tk,sh,b,rg,ev,me:c.tankRef?packMe(c.tankRef):null});}catch(_){}}
+  for(const c of NET.conns.values()){if(!c.conn.open||c.pending)continue;try{c.conn.send({t:'s',tl:r1(timeLeft),tk,sh,b,rg,ev,me:c.tankRef?packMe(c.tankRef):null});}catch(_){}}
 }
 function hostSendEnd(){
   if(NET.role!=='host')return;
@@ -1841,7 +2144,8 @@ function aiUpdate(t,dt){
     ai.fireDelay-=dt;
     if(ai.fireDelay<=0&&(t.bloom<cfg.diff.bloom||ai.fireDelay<-1.5)){
       let friendly;
-      if(c.arty){const bg=blastGeom(t.x,t.y,ax,ay,c.splash);friendly=tanks.some(o=>o!==t&&o.alive&&o.team===t.team&&blastNTank(bg,ax,ay,o)<1.35);}
+      if(c.arty){const bg=blastGeom(t.x,t.y,ax,ay,c.splash);friendly=tanks.some(o=>o!==t&&o.alive&&o.team===t.team&&blastNTank(bg,ax,ay,o)<1.35);
+        if(!friendly&&artyPathHit(t.x,t.y,ax,ay,artyPeak(hyp(ax-t.x,ay-t.y)))){friendly=true;ai.coverT=(ai.coverT||0)+.4;if(ai.coverT>4){ai.coverT=0;ai.unstick=1.4;ai.side=Math.random()<.5?-1:1;}}}
       else{const ex=t.x+Math.cos(t.ta)*dist,ey=t.y+Math.sin(t.ta)*dist;friendly=tanks.some(o=>o!==t&&o.alive&&o.team===t.team&&segTank(t.x,t.y,ex,ey,o));}
       if(!friendly){fire(t);if(c.arty)ai.ex=undefined;const nx=chooseAmmo(t,tg.blind?null:tg);if(nx!==t.ammo&&t.ammoCount[nx]>0)t.ammo=nx;}
       else ai.fireDelay=.4;
@@ -1914,7 +2218,7 @@ function update(dt){
   // shells
   for(let i=shells.length-1;i>=0;i--){
     const s=shells[i];
-    if(s.arty){s.t+=dt;const p=Math.min(1,s.t/s.T);s.x=s.sx+(s.tx-s.sx)*p;s.y=s.sy+(s.ty-s.sy)*p;s.h=4*s.peak*p*(1-p);if(p>=1){artyImpact(s);shells.splice(i,1);}continue;}
+    if(s.arty){s.t+=dt;const p=Math.min(1,s.t/s.T,s.stopP||1);s.x=s.sx+(s.tx-s.sx)*p;s.y=s.sy+(s.ty-s.sy)*p;s.h=4*s.peak*p*(1-p);if(p>=(s.stopP||1)){if(s.stopP)s.hitCover=1;artyImpact(s);shells.splice(i,1);}continue;}
     s.px=s.x;s.py=s.y;
     const nx=s.x+s.vx*dt,ny=s.y+s.vy*dt;
     let best=null,bt=2,bh=null;
@@ -2166,6 +2470,9 @@ function drawAim(){
     const aligned=Math.abs(angDiff(player.ta,Math.atan2(ay-player.y,ax-player.x)))<.05;
     ctx.setLineDash([6/cam.z,8/cam.z]);ctx.strokeStyle='rgba(235,230,210,.18)';ctx.lineWidth=1.2/cam.z;ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(ax,ay);ctx.stroke();ctx.setLineDash([]);
     ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.55)';ctx.lineWidth=2/cam.z;ctx.beginPath();ctx.arc(ax,ay,r,0,TAU);ctx.stroke();
+    {const hit=artyPathHit(player.x,player.y,ax,ay,artyPeak(d));
+     if(hit){const k=9/cam.z;ctx.strokeStyle='#ff5f4c';ctx.lineWidth=3/cam.z;ctx.beginPath();ctx.moveTo(hit.x-k,hit.y-k);ctx.lineTo(hit.x+k,hit.y+k);ctx.moveTo(hit.x+k,hit.y-k);ctx.lineTo(hit.x-k,hit.y+k);ctx.stroke();
+       ctx.font=FONT(700,11/cam.z);ctx.fillStyle='#ff5f4c';ctx.textAlign='center';ctx.fillText('BLOCKED',hit.x,hit.y-k-4/cam.z);}}
     {const bg=blastGeom(player.x,player.y,ax,ay,player.cls.splash*(player.ammo==='HE'?1:.55));
      ctx.fillStyle='rgba(226,181,64,.07)';ctx.strokeStyle='rgba(226,181,64,.38)';ctx.beginPath();blastPoly(bg,ax,ay).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();ctx.stroke();
      ctx.strokeStyle='rgba(242,211,107,.16)';ctx.setLineDash([4/cam.z,6/cam.z]);ctx.beginPath();blastPoly(bg,ax,ay,STUN_REACH).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.stroke();ctx.setLineDash([]);}
@@ -2510,7 +2817,7 @@ function build3D(){
     const walls=own(new THREE.InstancedMesh(R3.unitBox,new THREE.MeshLambertMaterial({color:0xffffff}),rects.length));
     const roofs=own(new THREE.InstancedMesh(R3.unitBox,new THREE.MeshLambertMaterial({color:0xffffff}),rects.length));
     rects.forEach((o,i)=>{
-      const wall=Math.min(o.w,o.h)<45;const h=wall?rand(16,24):rand(30,62);o.h3=h;
+      const wall=Math.min(o.w,o.h)<45;const h=o.h3!==undefined?o.h3:(o.h3=obsHeight(o));
       R3.m4.compose(R3.p3.set(o.x+o.w/2,0,o.y+o.h/2),R3.q.identity(),R3.s3.set(o.w,h,o.h));walls.setMatrixAt(i,R3.m4);
       walls.setColorAt(i,R3.col.set(wall?'#6a675a':['#77745f','#6c6b5c','#7d735f','#68665a'][i%4]));
       const ruined=!wall&&Math.random()<.3;
@@ -2523,7 +2830,7 @@ function build3D(){
   const rocks=obstacles.filter(o=>o.k==='rock');
   if(rocks.length){
     const rm=own(new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:0xffffff}),rocks.length));
-    rocks.forEach((o,i)=>{R3.e.set(rand(-.3,.3),rand(0,TAU),rand(-.3,.3));R3.q.setFromEuler(R3.e);R3.m4.compose(R3.p3.set(o.x,o.r*.18,o.y),R3.q,R3.s3.set(o.r,o.r*rand(.55,.8),o.r*rand(.9,1.1)));rm.setMatrixAt(i,R3.m4);
+    rocks.forEach((o,i)=>{R3.e.set(rand(-.3,.3),rand(0,TAU),rand(-.3,.3));R3.q.setFromEuler(R3.e);R3.m4.compose(R3.p3.set(o.x,o.r*.18,o.y),R3.q,R3.s3.set(o.r,o.r*.7,o.r*rand(.9,1.1)));rm.setMatrixAt(i,R3.m4);
       const v=rand(.42,.56);rm.setColorAt(i,R3.col.setRGB(v,v*.98,v*.88));});
     rm.castShadow=rm.receiveShadow=true;world.add(rm);
   }
@@ -2778,6 +3085,8 @@ function drawAim3D(){
     const aligned=Math.abs(angDiff(P.ta,Math.atan2(ay-P.y,ax-P.x)))<.05;
     ctx.strokeStyle='rgba(226,181,64,.16)';ctx.setLineDash([12,10]);ctx.lineWidth=1.2;if(gPath(P.x,P.y,P.cls.maxRange))ctx.stroke();ctx.setLineDash([]);
     ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.6)';ctx.lineWidth=2;if(gPath(ax,ay,r))ctx.stroke();
+    {const hit=artyPathHit(P.x,P.y,ax,ay,artyPeak(d));
+     if(hit){const q=proj(hit.x,hit.y,(hit.o.h3||10)*.6);if(q){ctx.strokeStyle='#ff5f4c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(q.x-9,q.y-9);ctx.lineTo(q.x+9,q.y+9);ctx.moveTo(q.x+9,q.y-9);ctx.lineTo(q.x-9,q.y+9);ctx.stroke();ctx.font=FONT(700,11);ctx.fillStyle='#ff5f4c';ctx.textAlign='center';ctx.fillText('BLOCKED',q.x,q.y-14);}}}
     {const bg=blastGeom(P.x,P.y,ax,ay,P.cls.splash*(P.ammo==='HE'?1:.55));
      const poly=(k)=>{let st=false,any=false;ctx.beginPath();for(const[x,y]of blastPoly(bg,ax,ay,k)){const q=proj(x,y,1);if(!q){st=false;continue;}if(!st){ctx.moveTo(q.x,q.y);st=true;}else ctx.lineTo(q.x,q.y);any=true;}if(any)ctx.closePath();return any;};
      ctx.lineWidth=1.5;if(poly(1)){ctx.fillStyle='rgba(226,181,64,.08)';ctx.fill();ctx.strokeStyle='rgba(226,181,64,.42)';ctx.stroke();}
@@ -2844,7 +3153,7 @@ function showGL(){const on=mode==='menu'?G3.ok:(is3D());if(R3.gl)R3.gl.style.dis
 // ================= loop =================
 let last=performance.now(),idleMap=null,idleTerrain=null;
 function frame(now){
-  const rawDt=(now-last)/1000,real=Math.min(.033,rawDt);last=now;R3.rawDt=rawDt;
+  const rawDt=Math.max(0,(now-last)/1000),real=Math.min(.033,rawDt);last=now;R3.rawDt=rawDt;
   if(slowT>0){slowT-=real;if(slowT<=0)timeScale=1;}
   lastRealDt=real;
   if((mode==='play'||mode==='over')&&tanks.length){if(NET.role==='client'||NET.ghost)clientUpdate(real);else{update(real*timeScale);netTick(real);}is3D()?render3D():render();}
@@ -3097,14 +3406,14 @@ function renderBay(now){
 }
 
 const menu=$('menu'),end=$('end'),pause=$('pause');
-function deploy(){if(NET.role==='host'){hostStart();return;}if(NET.role==='client')return;initAudio();menu.hidden=true;end.hidden=true;pause.hidden=true;newBattle();last=performance.now();}
+function deploy(){lockLandscape();if(NET.role==='host'){hostStart();return;}if(NET.role==='client')return;initAudio();menu.hidden=true;end.hidden=true;pause.hidden=true;newBattle();last=performance.now();}
 $('deploy').addEventListener('click',deploy);
 $('again').addEventListener('click',()=>{if(NET.role==='client'){toGarage();return;}deploy();});
 $('restart').addEventListener('click',deploy);
 $('resume').addEventListener('click',resumeGame);
-function toGarage(){end.hidden=true;pause.hidden=true;menu.hidden=false;mode='menu';NET.overlay=false;NET.ghost=false;$('deadbar').hidden=true;showGL();renderGarage();}
+function toGarage(){NET.rejoin=null;end.hidden=true;pause.hidden=true;menu.hidden=false;mode='menu';NET.overlay=false;NET.ghost=false;$('deadbar').hidden=true;showGL();renderGarage();}
 $('toMenu').addEventListener('click',toGarage);
-$('quit').addEventListener('click',()=>{if(NET.role!=='off'&&mode!=='menu'){netLeave(NET.role==='host'?'You closed the room.':'You left the squad.');}toGarage();});
+$('quit').addEventListener('click',()=>{NET.rejoin=null;if(NET.role==='host')broadcast({t:'hostleft'});if(NET.role!=='off'&&mode!=='menu'){netLeave(NET.role==='host'?'You closed the room.':'You left the squad.');}toGarage();});
 $('leave').addEventListener('click',()=>{if(mode==='play'){mode='over';result={winner:1-player.team,reason:'left',left:true};if(NET.role==='client')netLeave();showEnd();}});
 
 // ================= debrief =================
@@ -3142,8 +3451,9 @@ function showEnd(){
   persist();
   $('endReward').innerHTML=`<span class="cr">+${fmt(credits)} cr</span>`+meds.map(([n,d])=>`<span class="medal"><b>${n}</b><small>${d}</small></span>`).join('');
   const pr=stats.shots?Math.round(stats.pens/stats.shots*100):0;
-  const cells=[['Damage dealt',fmt(stats.dmg)],['Kills',stats.kills],['Spotting assist',fmt(stats.assist)],['Stun assist',`${fmt(stats.stunAssist)}${stats.stunned?` · ${stats.stunned} stunned`:''}`],['Blocked by armor',fmt(stats.blocked)],['Splash damage',`${fmt(stats.splash||0)}${stats.splashHits?` · ${stats.splashHits} ${stats.splashHits===1?'hit':'hits'}`:''}`],['Shots · hits · pens',`${stats.shots} · ${stats.hits} · ${stats.pens}`],['Pen rate',pr+'%'],['Enemies spotted',typeof stats.spotted==='number'?stats.spotted:stats.spotted.size],['Capture · reset',`${Math.round(stats.capped)} · ${Math.round(stats.defended)}`]];
-  $('endStats').innerHTML=cells.map(([l,v])=>`<div><span>${l}</span><strong>${v}</strong></div>`).join('');
+  const cells=[['Damage dealt',fmt(stats.dmg)],['Kills',stats.kills],['Spotting assist',fmt(stats.assist)],['Stun assist',fmt(stats.stunAssist),stats.stunned?`${stats.stunned} stunned`:''],['Blocked by armor',fmt(stats.blocked)],['Splash damage',fmt(stats.splash||0),stats.splashHits?`${stats.splashHits} ${stats.splashHits===1?'hit':'hits'}`:''],['Shots fired',stats.shots,`${stats.hits} ${stats.hits===1?'hit':'hits'} · ${stats.pens} ${stats.pens===1?'pen':'pens'}`],['Pen rate',pr+'%','direct pens ÷ shots'],['Enemies spotted',typeof stats.spotted==='number'?stats.spotted:stats.spotted.size],['Capture · reset',`${Math.round(stats.capped)} · ${Math.round(stats.defended)}`]];
+  $('endStats').innerHTML=cells.map(([l,v,x])=>`<div><span>${l}</span><strong>${v}</strong>${x?`<em>${x}</em>`:''}</div>`).join('');
+  setEndView(false);
   const table=(team)=>{const list=tanks.filter(t=>t.team===team).sort((x,y)=>y.dmgDealt-x.dmgDealt);
     return `<div><div class="tcap ${team===PT?'a':'e'}">${team===PT?'Your team':'Enemy team'}</div><div class="wrap"><table><thead><tr><th>Tank</th><th>Class</th><th class="n">Damage</th><th class="n">Kills</th></tr></thead><tbody>${
       list.map(t=>`<tr class="${t.isPlayer?'me':''} ${t.alive?'':'dead'}"><td>${t.alive?'':'✕ '}${t.name}</td><td>${t.cls.name}</td><td class="n">${fmt(t.dmgDealt)}</td><td class="n">${t.kills}</td></tr>`).join('')}</tbody></table></div></div>`;};
@@ -3152,6 +3462,8 @@ function showEnd(){
   $('toMenu').hidden=NET.role==='client';
   end.hidden=false;end.scrollTop=0;
 }
+function setEndView(board){document.querySelector('#end .debrief').classList.toggle('showboard',board);$('endStats').hidden=board;$('endBoard').hidden=!board;const b=$('endView');b.textContent=board?'My stats':'Scores';b.setAttribute('aria-pressed',board?'true':'false');}
+$('endView').addEventListener('click',()=>setEndView($('endBoard').hidden));
 
 // ================= boot =================
 const fontsReady=document.fonts?Promise.race([document.fonts.load(FONT(600,22)),new Promise(r=>setTimeout(r,1500))]):Promise.resolve();
@@ -3159,7 +3471,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,via:NET.via||null,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>

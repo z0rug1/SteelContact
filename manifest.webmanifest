@@ -4,7 +4,7 @@
   "description": "Top-down 3D tank battles with squad multiplayer.",
   "start_url": "./",
   "display": "fullscreen",
-  "orientation": "any",
+  "orientation": "landscape",
   "background_color": "#23271d",
   "theme_color": "#23271d",
   "icons": [
