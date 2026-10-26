@@ -348,14 +348,14 @@ fieldset.slab{display:block}
         <li><b>Effective armor</b>A shell pens when it beats <code>plate ÷ cos(angle)</code>. Past 70° AP and APCR bounce. The reticle turns green, yellow or red for the plate under it.</li>
         <li><b>Ammo</b>AP is the standard round. APCR has 25% more pen and flies faster but loses pen at range. HE never bounces, wrecks modules and splashes damage through thin armor even without a pen.</li>
         <li><b>View range</b>Each vehicle spots enemies only inside its view circle: Light 760 m, Medium and Sniper 600 m, Heavy 470 m, SPG 430 m. Your team shares what anyone sees.</li>
-        <li><b>Sight lines</b>Inside that range, an enemy is visible when anyone on your team has a line to it that no bush, tree or smoke cuts. Cover you sit in doesn't block your own view. Within 30 m everyone is seen.</li>
-        <li><b>Markers and sound</b>A tank's HP marker shows when it is struck or fires while seen. A hidden tank that fires only leaves a sound ring. Repeat shots tighten it.</li>
+        <li><b>Sight lines</b>Inside that range, an enemy is visible when anyone on your team has a line to it that no bush, tree or smoke cuts. Cover you sit in doesn't block your own view. Within 95 m everyone is seen, cover or not.</li>
+        <li><b>Firing</b>Firing reveals you for 4 s to every enemy within 1.5× its view range unless a rock or building is in between. Bushes don't hide a muzzle flash. Exception: if you're unspotted and inside a bush, firing only leaves a sound ring. Repeat shots tighten it. Being hit also shows your HP marker for 4 s.</li>
         <li><b>Stun</b>Artillery shells stun every enemy in a ring wider than the blast for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
         <li><b>Consumables</b>Repair kit fixes tracks, gun and engine and shakes off stun. Extinguisher puts out fire and fireproofs you for 12 s. Smoke drops a 14 s cloud that blocks sight lines.</li>
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
         <li><b>Terrain</b>Trees fall when you drive into them. Shallow fords and marsh slow you. Deep river water is impassable. Ram enemies at speed for damage. Heavier tanks win.</li>
         <li><b>Views</b>Tactical 3D looks down with north up. Chase puts the camera behind your hull. Classic 2D is the top-down map. Switch with <kbd>V</kbd> or the view button under the timer.</li>
-        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Phone: left thumb drives, right thumb nudges the aim and fires on release. Tap the minimap to send allies there.</li>
+        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Phone: left thumb drives, right thumb drags the aim and fires on release. Gun aim returns to straight ahead on release. SPG aim stays where you left it. Tap the minimap to send allies there.</li>
       </ul>
     </section>
     <section class="tab" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
@@ -920,6 +920,11 @@ function fire(t){
   const rl=reloadTime(t);t.reloadT=rl;t.reloadMax=rl;
   const sp=spread(t),a=t.ta+(Math.random()+Math.random()-1)*sp+(t.ai?t.ai.err:0);
   const mx=t.x+Math.cos(t.ta)*t.cls.len*.8,my=t.y+Math.sin(t.ta)*t.cls.len*.8;
+  // Firing reveals you to every enemy within 1.5x its view range with no hard cover (rocks, buildings) in between.
+  // Exception: an unspotted tank firing from inside a bush is not revealed; enemies only get a sound ring.
+  // An unspotted tank in the open that no enemy is close enough to see also only leaves a sound ring.
+  const bushShot=t.hidden&&t.inBush;
+  if(!bushShot&&tanks.some(o=>o.alive&&o.team!==t.team&&hyp(o.x-t.x,o.y-t.y)<=o.cls.view*1.5&&clearLine(o.x,o.y,t.x,t.y))){t.marker=MARKER_TIME;t.hidden=false;}
   const fromHide=t.hidden;
   if(t.cls.arty){
     const am=ARTY_AMMO[t.ammo];
@@ -933,9 +938,7 @@ function fire(t){
   }
   t.bloom=Math.min(1,t.bloom+.55);t.st.shots++;
   let ring=null;
-  if(!fromHide){
-    if(tanks.some(o=>o.alive&&o.team!==t.team&&hyp(o.x-t.x,o.y-t.y)<=o.cls.view*1.5&&clearLine(o.x,o.y,t.x,t.y)))t.marker=MARKER_TIME;
-  }else{
+  if(fromHide){
     t.bushShots=t.bushShotT>0?t.bushShots+1:0;t.bushShotT=10;
     const r=Math.max(45,150/(1+.7*t.bushShots)),off=r*.7*Math.sqrt(Math.random()),oa=Math.random()*TAU;
     const cx=clamp(t.x+Math.cos(oa)*off,0,W),cy=clamp(t.y+Math.sin(oa)*off,0,H);
@@ -1197,14 +1200,17 @@ function runFx(ev){
 // ================= input =================
 const keys=new Set();let mouse={x:0,y:0,down:false,active:false,right:false},lastInput='kb';
 const stickL={id:null,ox:0,oy:0,x:0,y:0},stickR={id:null,ox:0,oy:0,x:0,y:0,moved:false};
-// Touch aim is relative: dragging the right stick moves the aim from wherever it was left.
-// Artillery keeps a fixed ground point; direct-fire guns keep an offset from the hull so the aim rides along as you drive.
+// Touch aim is relative: dragging the right stick moves the aim from where the drag starts.
+// Artillery keeps its last ground point between drags. Direct-fire guns return to the default aim
+// (straight over the hull's nose, 380 units out) when the stick is released, and the next drag starts from there.
+const AIM_REST=380;
 let touchAimPt=null,touchOff=null,touchBase=null;
 function beginTouchAim(){
   const p=player;if(!p)return;
   if(p.cls.arty){if(!touchAimPt)touchAimPt=p.aimX!==undefined?{x:p.aimX,y:p.aimY}:{x:p.x+Math.cos(p.ta)*600,y:p.y+Math.sin(p.ta)*600};touchBase={x:touchAimPt.x,y:touchAimPt.y};}
-  else{if(!touchOff)touchOff={x:Math.cos(p.ta)*380,y:Math.sin(p.ta)*380};touchBase={x:touchOff.x,y:touchOff.y};}
+  else{if(!touchOff)touchOff={x:Math.cos(p.a)*AIM_REST,y:Math.sin(p.a)*AIM_REST};touchBase={x:touchOff.x,y:touchOff.y};}
 }
+function releaseTouchAim(){touchBase=null;if(player&&!player.cls.arty)touchOff=null;}
 function moveTouchAim(dx,dy){
   const p=player;if(!p||!touchBase)return;
   if(is3D()){const r=camYaw+Math.PI/2,c=Math.cos(r),sn=Math.sin(r),k=view==='chase'?1.25:1.1;const ndx=(dx*c-dy*sn)*k,ndy=(dx*sn+dy*c)*k;dx=ndx;dy=ndy;}
@@ -1265,9 +1271,9 @@ cv.addEventListener('pointermove',e=>{
 cv.addEventListener('pointerup',e=>{
   if(e.pointerType==='mouse'){if(e.button===0)mouse.down=false;if(e.button===2)mouse.right=false;return;}
   if(e.pointerId===stickL.id)stickL.id=null;
-  if(e.pointerId===stickR.id){stickR.id=null;doFire();}
+  if(e.pointerId===stickR.id){stickR.id=null;doFire();releaseTouchAim();}
 });
-cv.addEventListener('pointercancel',e=>{if(e.pointerId===stickL.id)stickL.id=null;if(e.pointerId===stickR.id)stickR.id=null;if(e.pointerType==='mouse'){mouse.down=false;mouse.right=false;}});
+cv.addEventListener('pointercancel',e=>{if(e.pointerId===stickL.id)stickL.id=null;if(e.pointerId===stickR.id){stickR.id=null;releaseTouchAim();}if(e.pointerType==='mouse'){mouse.down=false;mouse.right=false;}});
 const toWorld=(sx,sy)=>is3D()?toWorld3D(sx,sy):{x:(sx-vw/2)/cam.z+cam.x,y:(sy-vh/2)/cam.z+cam.y};
 const toScreen=(x,y,h=0)=>is3D()?(proj(x,y,h)||{x:-9999,y:-9999}):{x:(x-cam.x)*cam.z+vw/2,y:(y-cam.y)*cam.z+vh/2};
 const ammoKeys=t=>t.cls.arty?['HE','AP']:['AP','APCR','HE'];
@@ -1559,7 +1565,7 @@ function readLocalInput(t){
   let ax=t.aimX,ay=t.aimY;
   if(lastInput==='touch'){
     if(t.cls.arty&&touchAimPt){ax=touchAimPt.x;ay=touchAimPt.y;}
-    else if(!t.cls.arty&&touchOff){ax=t.x+touchOff.x;ay=t.y+touchOff.y;}
+    else if(!t.cls.arty){if(touchOff&&stickR.id!==null){ax=t.x+touchOff.x;ay=t.y+touchOff.y;}else{ax=t.x+Math.cos(t.a)*AIM_REST;ay=t.y+Math.sin(t.a)*AIM_REST;}}
   }else if(mouse.active){const w=toWorld(mouse.x,mouse.y);ax=w.x;ay=w.y;}
   if(ax===undefined){ax=t.x+Math.cos(t.ta)*400;ay=t.y+Math.sin(t.ta)*400;}
   return {thr,turn,la,ax,ay,f:(mouse.down||keys.has(' '))&&lastInput==='kb'};
@@ -2776,7 +2782,7 @@ function renderIdle(now){
 }
 function pauseGame(){
   if(mode!=='play')return;
-  keys.clear();mouse.down=false;stickL.id=null;stickR.id=null;
+  keys.clear();mouse.down=false;stickL.id=null;stickR.id=null;releaseTouchAim();
   const mp=NET.role!=='off';
   document.getElementById('pauseInfo').textContent=mp?`Squad battle keeps running · ${M.name}`:`${M.name} · ${cfg.mode==='encounter'?'Encounter':'Standard'} · ${cfg.diff.name}`;
   $('restart').hidden=NET.role==='client';$('quit').textContent=mp?'Leave battle':'Back to garage';
@@ -3076,7 +3082,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
