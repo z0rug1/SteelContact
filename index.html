@@ -351,6 +351,7 @@ fieldset.slab{display:block}
 #rotate{display:none;position:fixed;inset:0;z-index:9999;background:#171a12;color:var(--brass);flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
 #rotate b{font-family:var(--display);font-size:26px;letter-spacing:.04em;color:#ebe6d2}
 #rotate span{font-size:14px;color:var(--muted)}
+#rotate .btn{margin-top:10px;clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);padding:12px 26px}
 #rotate svg{animation:rot 2.4s ease-in-out infinite}
 @keyframes rot{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
 @media (orientation:portrait) and (pointer:coarse){#rotate{display:flex}}
@@ -358,7 +359,7 @@ fieldset.slab{display:block}
 
 </head><body>
 <div id="game"><canvas id="gl" aria-hidden="true"></canvas><canvas id="cv"></canvas></div>
-<div id="rotate" role="alert"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><rect x="20" y="8" width="24" height="44" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><path d="M10 40a24 24 0 0 0 20 16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M26 52l4 4-5 3" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Turn your phone sideways</b><span>Steel Contact plays in landscape only.</span></div>
+<div id="rotate" role="alert"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><rect x="20" y="8" width="24" height="44" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><path d="M10 40a24 24 0 0 0 20 16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M26 52l4 4-5 3" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Turn your phone sideways</b><span>Steel Contact plays in landscape only.</span><button class="btn" id="fsBtn" type="button" hidden>Tap to play full screen</button></div>
 <div id="probe"></div>
 
 <div id="menu" class="hangar">
@@ -397,6 +398,7 @@ fieldset.slab{display:block}
         <div class="slab wide" role="group" aria-label="Enemy skill"><div class="k">Enemy skill</div><div class="seg" id="segDiff"></div></div>
         <div class="slab wide" role="group" aria-label="Team size"><div class="k">Team size</div><div class="seg" id="segSize"></div></div>
         <div class="slab wide" role="group" aria-label="Weather"><div class="k">Weather</div><div class="seg" id="segSky"></div></div>
+        <div class="slab wide" role="group" aria-label="Resolution"><div class="k">Resolution</div><div class="seg" id="segRes"></div></div>
       </div>
     </section>
     <section class="tab" id="tab-squad" role="tabpanel" aria-labelledby="tabbtn-squad" hidden><div id="squadBox" class="slabs"></div></section>
@@ -546,8 +548,17 @@ const recOf=k=>SAVE.rec[k]||(SAVE.rec[k]={battles:0,wins:0,dmg:0,best:0,kills:0}
 const cv=document.getElementById('cv');let ctx=cv.getContext('2d');const mainCtx=ctx;
 const probe=document.getElementById('probe');
 let vw=1,vh=1,dpr=1;const inset={t:0,r:0,b:0,l:0};
+// Resolution: 'max' renders at the screen's full pixel density (up to 3x) and never lowers it;
+// 'auto' starts at up to 2x and steps down if frames drop below ~30 fps; 'saver' renders at 1x.
+const RES_MODES={max:{cap:3,adapt:false},auto:{cap:2,adapt:true},saver:{cap:1,adapt:true}};
+function resMode(){return RES_MODES[SAVE.set.res]||RES_MODES.auto;}
+function resPR(){return Math.min(window.devicePixelRatio||1,resMode().cap);}
+function applyRes(){
+  resize();
+  if(R3&&R3.r){R3.basePR=resPR();if(R3.ql){R3.ql.lvl=0;R3.ql.warm=1.5;}R3.r.setPixelRatio(R3.basePR);R3.size=null;}
+}
 function resize(){
-  dpr=Math.min(window.devicePixelRatio||1,2);vw=innerWidth;vh=innerHeight;
+  dpr=resPR();vw=innerWidth;vh=innerHeight;
   cv.width=Math.round(vw*dpr);cv.height=Math.round(vh*dpr);
   const cs=getComputedStyle(probe);
   inset.t=parseFloat(cs.paddingTop)||0;inset.r=parseFloat(cs.paddingRight)||0;inset.b=parseFloat(cs.paddingBottom)||0;inset.l=parseFloat(cs.paddingLeft)||0;
@@ -858,7 +869,7 @@ function newBattle(opts={}){
     const skyKey=st.sky==='random'||!st.sky?['day','day','dusk','overcast'][Math.floor(Math.random()*4)]:st.sky;
     C={mode:st.mode,map:mapId,diffKey:st.diff,size:st.size===7?7:5,sky:skyKey,seed:Math.floor(Math.random()*1e9)};
   }
-  NET.ghost=false;
+  NET.ghost=false;NET.hist=[];NET.seqT=new Map();NET.reconOK=false;
   cfg={mode:C.mode,map:C.map,diff:DIFF[C.diffKey]||DIFF.veteran,diffKey:C.diffKey,size:C.size,sky:C.sky,seed:C.seed,raw:C};
   M=genMap(cfg.map,cfg.seed);obstacles=M.obstacles;bushes=M.bushes;trees=M.trees;
   for(const o of obstacles)if(o.h3===undefined)o.h3=obsHeight(o);
@@ -1316,7 +1327,22 @@ function runFx(ev){
 }
 
 addEventListener('pagehide',()=>{if(NET.role==='host'&&mode!=='menu')try{broadcast({t:'hostleft'});}catch(_){}});
-function lockLandscape(){try{const o=screen.orientation;if(o&&o.lock&&!lockLandscape.done){lockLandscape.done=true;o.lock('landscape').catch(()=>{});}}catch(_){}}
+function lockLandscape(){try{const o=screen.orientation;if(o&&o.lock&&document.fullscreenElement)o.lock('landscape').catch(()=>{});}catch(_){}}
+// Full screen on phones. Browsers only allow it from a tap, so: the rotate screen has a button (on Android this
+// also turns the game sideways), and the first tap in landscape goes full screen. If you leave full screen
+// yourself, it stays off until you rotate the phone again. Not available in the Android app (already full screen)
+// or iPhone Safari (no full screen for pages; use Add to Home Screen).
+const FS={declined:false,failed:false,was:false};
+function fsSupported(){try{const el=document.documentElement;return location.protocol!=='file:'&&!!el&&!!(el.requestFullscreen||el.webkitRequestFullscreen)&&matchMedia('(pointer:coarse)').matches&&!matchMedia('(display-mode: fullscreen)').matches;}catch(_){return false;}}
+function goFullscreen(){
+  if(FS.failed||!fsSupported()||document.fullscreenElement||document.webkitFullscreenElement)return;
+  const el=document.documentElement,rq=el.requestFullscreen||el.webkitRequestFullscreen;
+  try{const pr=rq.call(el,{navigationUI:'hide'});if(pr&&pr.then)pr.then(()=>lockLandscape()).catch(()=>{FS.failed=true;});}catch(_){FS.failed=true;}
+}
+document.addEventListener('fullscreenchange',()=>{const on=!!document.fullscreenElement;if(FS.was&&!on)FS.declined=true;FS.was=on;});
+try{screen.orientation.addEventListener('change',()=>{FS.declined=false;});}catch(_){addEventListener('orientationchange',()=>{FS.declined=false;});}
+document.addEventListener('pointerdown',()=>{if(!FS.declined&&innerWidth>innerHeight)goFullscreen();},true);
+{const b=document.getElementById('fsBtn');if(b){b.hidden=!fsSupported();b.addEventListener('click',()=>{FS.declined=false;goFullscreen();});}}
 // ================= input =================
 const keys=new Set();let mouse={x:0,y:0,down:false,active:false,right:false},lastInput='kb';
 const stickL={id:null,ox:0,oy:0,x:0,y:0},stickR={id:null,ox:0,oy:0,x:0,y:0,moved:false};
@@ -1639,7 +1665,9 @@ function joinRoom(code,opts={}){
     if(NET.conn&&NET.conn!==conn){try{NET.conn.close();}catch(_){}}
     try{if(NET.relayCancel&&!conn.relay)NET.relayCancel();}catch(_){}NET.relayCancel=null;
     NET.conn=conn;NET.rx=performance.now();NET.via=how;
-    conn.on('data',d=>{if(NET.conn===conn){NET.rx=performance.now();clientOnData(d);}});
+    const lag=+q.get('lag')||0;
+    if(lag){const raw=conn.send.bind(conn);conn.send=m=>setTimeout(()=>raw(m),lag/2);}
+    conn.on('data',d=>{const go=()=>{if(NET.conn===conn){NET.rx=performance.now();clientOnData(d);}};if(lag)setTimeout(go,lag/2);else go();});
     conn.on('close',()=>{if(NET.conn===conn)clientLost();});
     conn.on('error',()=>{if(NET.conn===conn)clientLost();});
     show(how==='relay'?'Connected through the backup relay. Waiting for the host to deploy.':'Connected. Waiting for the host to deploy.');
@@ -1698,7 +1726,7 @@ function hostOnData(conn,d){
   }
   if(c.pending)return;
   const t=c.tankRef;if(!t||mode==='menu')return;
-  if(d.t==='in'){if(t.remote)t.remote.inp={thr:clamp(+d.thr||0,-1,1),turn:clamp(+d.turn||0,-1,1),la:!!d.la,ax:+d.ax||t.x,ay:+d.ay||t.y,f:!!d.f};return;}
+  if(d.t==='in'){if(t.remote){t.remote.inp={thr:clamp(+d.thr||0,-1,1),turn:clamp(+d.turn||0,-1,1),la:!!d.la,ax:+d.ax||t.x,ay:+d.ay||t.y,f:!!d.f};if(+d.sq>(t.remote.sq||0)){t.remote.sq=+d.sq;t.remote.sqT=performance.now();}}return;}
   if(d.t==='act'&&t.alive&&mode==='play'){
     if(d.a==='fire'){if(t.reloadT<=0)fire(t);}
     else if(d.a==='ammo')setAmmo(t,String(d.k));
@@ -1790,14 +1818,16 @@ function clientGiveUp(msg){
 }
 function netSendInput(inp){
   NET.inT-=lastRealDt;if(NET.inT>0||!NET.conn||!NET.conn.open)return;NET.inT=1/20;
-  NET.conn.send({t:'in',thr:+inp.thr.toFixed(2),turn:+inp.turn.toFixed(2),la:inp.la?1:0,ax:Math.round(inp.ax),ay:Math.round(inp.ay),f:inp.f?1:0});
+  NET.seq=(NET.seq||0)+1;if(!NET.seqT)NET.seqT=new Map();NET.seqT.set(NET.seq,performance.now());if(NET.seqT.size>100)NET.seqT.delete(NET.seqT.keys().next().value);
+  NET.conn.send({t:'in',sq:NET.seq,thr:+inp.thr.toFixed(2),turn:+inp.turn.toFixed(2),la:inp.la?1:0,ax:Math.round(inp.ax),ay:Math.round(inp.ay),f:inp.f?1:0});
 }
 function netAct(m){if(NET.conn&&NET.conn.open)NET.conn.send({t:'act',...m});}
 function packTank(t){return [r1(t.x),r1(t.y),r3(t.a),r3(t.ta),Math.ceil(t.hp),(t.alive?1:0)|(t.hidden?2:0)|(t.capturing?4:0)|(t.mods.tracks>0?8:0)|(t.mods.fire>0?32:0)|(t.inBush?64:0),r1(t.marker),r1(t.stun),r1(t.stunMax),Math.round(t.spd),Math.round(t.dmgDealt),t.kills];}
 function packShell(s){return s.arty?[1,r1(s.sx),r1(s.sy),r1(s.tx),r1(s.ty),r3(s.t),r3(s.T),r1(s.peak),s.team,s.masked?1:0]:[0,r1(s.x),r1(s.y),r1(s.vx),r1(s.vy),s.ammo.key,s.team,s.masked?1:0,Math.round(s.dist),r1(s.h0||14),r1(s.spd)];}
 function packMe(t){
   const st=t.st;
-  return {rl:r1(t.reloadT),rm:r1(t.reloadMax),am:t.ammo,ac:t.ammoCount,cn:{repair:r1(t.cons.repair),ext:r1(t.cons.ext),smoke:r1(t.cons.smoke)},sl:t.smokeLeft,
+  // sq/sa: the last input applied from this player and how long ago (s), so their screen can compare like with like
+  return {sq:t.remote?t.remote.sq||0:0,sa:t.remote&&t.remote.sqT?r3((performance.now()-t.remote.sqT)/1000):0,rl:r1(t.reloadT),rm:r1(t.reloadMax),am:t.ammo,ac:t.ammoCount,cn:{repair:r1(t.cons.repair),ext:r1(t.cons.ext),smoke:r1(t.cons.smoke)},sl:t.smokeLeft,
     md:{tracks:r1(t.mods.tracks),gun:r1(t.mods.gun),engine:r1(t.mods.engine),fire:r1(t.mods.fire)},bl:r3(t.bloom),se:t.seenByEnemy?1:0,
     st:{...st,spotted:st.spotted instanceof Set?st.spotted.size:st.spotted}};
 }
@@ -1832,7 +1862,10 @@ function applySnap(m){
   for(const ev of m.ev)runFx(ev);
   if(m.me&&player){
     const me=m.me,p=player;
-    p.reloadT=me.rl;p.reloadMax=me.rm||1;p.ammo=me.am;p.ammoCount=me.ac;p.cons=me.cn;p.smokeLeft=me.sl;p.mods=me.md;p.bloom=me.bl;p.seenByEnemy=!!me.se;
+    p.reloadT=me.rl;p.reloadMax=me.rm||1;p.ammo=me.am;p.ammoCount=me.ac;p.cons=me.cn;p.smokeLeft=me.sl;p.mods=me.md;p.seenByEnemy=!!me.se;
+    // Where was this tank on this screen at the moment the host's copy is from? The difference is the real error.
+    if(me.sq&&p.net&&NET.seqT&&!new URLSearchParams(location.search).has('norecon')){const st=NET.seqT.get(me.sq);if(st!==undefined){const h=histAt(st+(me.sa||0)*1000);if(h){NET.reconOK=true;p.recon={x:p.net.x-h.x,y:p.net.y-h.y,a:angDiff(h.a,p.net.a)};}}}
+    if(!NET.reconOK)p.bloom=me.bl;
     p.st=me.st;stats=p.st;
   }
 }
@@ -1841,14 +1874,19 @@ function clientUpdate(dt){
   for(let i=rings.length-1;i>=0;i--){rings[i].life-=dt;if(rings[i].life<=0)rings.splice(i,1);}
   for(let i=pings.length-1;i>=0;i--){pings[i].life-=dt;if(pings[i].life<=0)pings.splice(i,1);}
   for(let i=clouds.length-1;i>=0;i--){const c=clouds[i];c.life-=dt;c.x+=c.vx*dt;c.y+=c.vy*dt;if(c.life<=0)clouds.splice(i,1);}
-  if(player&&mode==='play'&&player.alive){controlPlayer(player,dt);collideWorld(player);}
+  if(player&&mode==='play'&&player.alive){controlPlayer(player,dt);collideWorld(player);bloomStep(player,dt);
+    const H=NET.hist||(NET.hist=[]),now=performance.now();H.push({tm:now,x:player.x,y:player.y,a:player.a});while(H.length&&H[0].tm<now-3000)H.shift();}
   const k=1-Math.exp(-dt*12);
   for(const t of tanks){
     const n=t.net;
     if(n){
-      if(t===player&&t.alive){
+      if(t===player&&t.alive&&NET.reconOK){
+        // remove the measured error smoothly; history moves with the tank so later comparisons stay fair
+        if(t.recon){const r=t.recon;t.recon=null;if(hyp(r.x,r.y)>90){t.x+=r.x;t.y+=r.y;shiftHist(r.x,r.y,0);t.corr=null;NET.cs=(NET.cs||0)+hyp(r.x,r.y);}else t.corr=r;}
+        if(t.corr){const c=1-Math.exp(-dt*8),dx=t.corr.x*c,dy=t.corr.y*c,da=t.corr.a*c;t.x+=dx;t.y+=dy;t.a+=da;NET.cs=(NET.cs||0)+hyp(dx,dy);t.corr.x-=dx;t.corr.y-=dy;t.corr.a-=da;shiftHist(dx,dy,da);if(Math.abs(t.corr.x)+Math.abs(t.corr.y)<.05)t.corr=null;}
+      }else if(t===player&&t.alive){
         const ex=n.x-t.x,ey=n.y-t.y;
-        if(hyp(ex,ey)>90){t.x=n.x;t.y=n.y;}else{const c=1-Math.exp(-dt*3.5);t.x+=ex*c;t.y+=ey*c;}
+        if(hyp(ex,ey)>90){t.x=n.x;t.y=n.y;NET.cs=(NET.cs||0)+hyp(ex,ey);}else{const c=1-Math.exp(-dt*3.5);t.x+=ex*c;t.y+=ey*c;NET.cs=(NET.cs||0)+hyp(ex*c,ey*c);}
         t.a+=angDiff(t.a,n.a)*(1-Math.exp(-dt*3));
       }else{
         t.x+=(n.x-t.x)*k;t.y+=(n.y-t.y)*k;t.a+=angDiff(t.a,n.a)*k;t.ta+=angDiff(t.ta,n.ta)*k;
@@ -1874,7 +1912,20 @@ function clientUpdate(dt){
   }
   presentStep(dt);
 }
-function doFire(){if(!player||!player.alive||mode!=='play')return;if(NET.role==='client'){if(player.reloadT<=0){netAct({a:'fire'});player.reloadT=.25;}}else if(player.reloadT<=0)fire(player);}
+// aim spread: grows with hull speed, hull turning and turret traverse, settles when still
+function bloomStep(t,dt){
+  const tgtB=clamp(Math.abs(t.spd)/t.s.speed*.75+Math.abs(t.turnRate||0)/t.s.rot*.35+Math.abs(t.turretRate||0)/t.s.trot*.45,0,1);
+  t.bloom=tgtB>t.bloom?t.bloom+(tgtB-t.bloom)*Math.min(1,dt*10):Math.max(tgtB,t.bloom-dt*.55*(t.stun>0?.6:1));
+}
+function histAt(tm){
+  const H=NET.hist;if(!H||!H.length)return null;
+  if(tm<=H[0].tm)return H[0];if(tm>=H[H.length-1].tm)return H[H.length-1];
+  let i=H.length-1;while(i>0&&H[i-1].tm>tm)i--;
+  const a=H[i-1],b=H[i],u=(tm-a.tm)/Math.max(1e-6,b.tm-a.tm);
+  return {x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u,a:a.a+angDiff(a.a,b.a)*u};
+}
+function shiftHist(dx,dy,da){for(const h of NET.hist||[]){h.x+=dx;h.y+=dy;h.a+=da;}}
+function doFire(){if(!player||!player.alive||mode!=='play')return;if(NET.role==='client'){if(player.reloadT<=0){netAct({a:'fire'});player.reloadT=.25;player.bloom=Math.min(1,player.bloom+.55);}}else if(player.reloadT<=0)fire(player);}
 function doAmmo(k){if(!player||!player.alive)return;if(NET.role==='client'){netAct({a:'ammo',k});sfx('click',1);}else setAmmo(player,k);}
 function doCons(k){if(!player||!player.alive)return;if(NET.role==='client')netAct({a:'cons',k});else useCons(player,k);}
 
@@ -2169,8 +2220,7 @@ function update(dt){
     for(const k of['repair','ext','smoke'])t.cons[k]=Math.max(0,t.cons[k]-dt);
     for(const k of['tracks','gun','engine'])t.mods[k]=Math.max(0,t.mods[k]-dt);
     if(t.mods.fire>0&&t.alive){t.mods.fire=Math.max(0,t.mods.fire-dt);damage(t,18*dt,null,{});t.marker=Math.max(t.marker,1);}
-    const tgtB=clamp(Math.abs(t.spd)/t.s.speed*.75+Math.abs(t.turnRate)/t.s.rot*.35+Math.abs(t.turretRate)/t.s.trot*.45,0,1);
-    t.bloom=tgtB>t.bloom?t.bloom+(tgtB-t.bloom)*Math.min(1,dt*10):Math.max(tgtB,t.bloom-dt*.55*(t.stun>0?.6:1));
+    bloomStep(t,dt);
     if(t.stun>0){t.stun=Math.max(0,t.stun-dt);if(t.stun<=0)t.stunBy=null;}
     if(t.alive&&Math.abs(t.spd)>12)for(const tr of trees)if(tr.alive&&hyp(tr.x-t.x,tr.y-t.y)<t.cls.len*.45+tr.r*.4){knockTreeSim(tr,t.a+rand(-.4,.4));t.spd*=.8;}
     presentTank(t,dt);
@@ -2716,7 +2766,7 @@ function init3D(){
     const gl=document.getElementById('gl');
     const coarse=matchMedia('(pointer:coarse)').matches;
     const r=new THREE.WebGLRenderer({canvas:gl,antialias:!coarse,powerPreference:'high-performance'});
-    R3.basePR=Math.min(window.devicePixelRatio||1,1.5);r.setPixelRatio(R3.basePR);R3.ql={lvl:0,t:0,n:0,sum:0,warm:1.5};
+    R3.basePR=resPR();r.setPixelRatio(R3.basePR);R3.ql={lvl:0,t:0,n:0,sum:0,warm:1.5};
     r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;
     R3.r=r;R3.coarse=coarse;
     R3.scene=new THREE.Scene();
@@ -3119,12 +3169,14 @@ function adaptQuality(){
   if(q.t<2)return;
   const avg=q.sum/q.n;q.t=0;q.n=0;q.sum=0;
   if(avg>1/30&&q.lvl<4){q.lvl++;applyQuality();q.warm=1;}
+  else if(avg<1/52&&q.lvl>0&&resMode().adapt){q.lvl--;applyQuality();q.warm=2;}  // plenty of headroom: step back up
 }
 function applyQuality(){
   const l=R3.ql.lvl,b=R3.basePR;
-  R3.r.setPixelRatio([b,Math.min(b,1.25),1,.8,.62][l]);R3.size=null;
+  R3.r.setPixelRatio(resMode().adapt?[b,Math.min(b,1.5),Math.min(b,1.15),Math.min(b,.9),Math.min(b,.7)][l]:b);R3.size=null;
   if(l>=1&&R3.sun.shadow.mapSize.x>1024){R3.sun.shadow.mapSize.set(1024,1024);if(R3.sun.shadow.map){R3.sun.shadow.map.dispose();R3.sun.shadow.map=null;}}
-  if(l>=3)R3.sun.castShadow=false;
+  if(R3.shadowsOn===undefined)R3.shadowsOn=R3.sun.castShadow;
+  R3.sun.castShadow=R3.shadowsOn&&l<3;
 }
 function render3D(){
   adaptQuality();
@@ -3295,6 +3347,7 @@ seg('segMode','mode',[['standard','Standard'],['encounter','Encounter']],SAVE.se
 seg('segDiff','diff',[['recruit','Recruit'],['veteran','Veteran'],['ace','Ace']],SAVE.set.diff,v=>SAVE.set.diff=v);
 seg('segSize','size',[[5,'5 v 5'],[7,'7 v 7']],SAVE.set.size,v=>SAVE.set.size=+v);
 seg('segView','view',[['tactical','Tactical 3D'],['chase','Chase 3D'],['2d','Classic 2D']],view,v=>{view=v;SAVE.set.view=v;});
+seg('segRes','res',[['max','Max'],['auto','Auto'],['saver','Battery saver']],SAVE.set.res||'auto',v=>{SAVE.set.res=v;applyRes();});
 seg('segSky','sky',[['random','Random'],['day','Midday'],['dusk','Dusk'],['overcast','Overcast']],SAVE.set.sky||'random',v=>SAVE.set.sky=v);
 $('snd').checked=soundOn;
 $('snd').addEventListener('change',e=>{soundOn=e.target.checked;SAVE.set.sound=soundOn;persist();});
@@ -3471,7 +3524,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,via:NET.via||null,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
