@@ -350,7 +350,8 @@ fieldset.slab{display:block}
         <li><b>View range</b>Each vehicle spots enemies only inside its view circle: Light 760 m, Medium and Sniper 600 m, Heavy 470 m, SPG 430 m. Your team shares what anyone sees.</li>
         <li><b>Sight lines</b>Inside that range, an enemy is visible when anyone on your team has a line to it that no bush, tree or smoke cuts. Cover you sit in doesn't block your own view. Within 95 m everyone is seen, cover or not.</li>
         <li><b>Firing</b>Firing reveals you for 4 s to every enemy within 1.5× its view range unless a rock or building is in between. Bushes don't hide a muzzle flash. Exception: if you're unspotted and inside a bush, firing only leaves a sound ring. Repeat shots tighten it. Being hit also shows your HP marker for 4 s.</li>
-        <li><b>Stun</b>Artillery shells stun every enemy in a ring wider than the blast for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
+        <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fall steeply and splash almost evenly all round. Long shots come in flat and throw a cone ahead of the impact. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
+        <li><b>Stun</b>Artillery shells stun every enemy inside a zone of the same shape, 1.75× larger, for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
         <li><b>Consumables</b>Repair kit fixes tracks, gun and engine and shakes off stun. Extinguisher puts out fire and fireproofs you for 12 s. Smoke drops a 14 s cloud that blocks sight lines.</li>
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
         <li><b>Terrain</b>Trees fall when you drive into them. Shallow fords and marsh slow you. Deep river water is impassable. Ram enemies at speed for damage. Heavier tanks win.</li>
@@ -904,7 +905,11 @@ const seen=t=>!player||t.team===player.team||!t.hidden;
 
 // ================= combat =================
 function spread(t){return (t.cls.disp||.005)+t.bloom*(t.cls.bloomK||.05)+(t.stun>0?.022:0);}
-function artyFlight(d){return 1+d/800;}
+// SPG shells fly a flat, World-of-Tanks-like arc: flight time is linear in distance,
+// 0.1 s point blank to 2.0 s at maximum range (1500 m).
+function artyFlight(d){return .1+1.9*clamp(d/CLASSES.spg.maxRange,0,1);}
+// arc apex height above the ground (draw-only; the descent angle it implies also shapes the blast)
+function artyPeak(d){return 25+d*.14;}
 function artyDisp(t,d){return 28+t.bloom*110+d*.025;}
 function reloadTime(t){return t.s.reload*(t.mods.gun>0?1.6:1)*(t.stun>0?1.3:1);}
 const STUN_MUL=.65;
@@ -931,7 +936,7 @@ function fire(t){
     let tx=t.aimX!==undefined?t.aimX:t.x+Math.cos(t.ta)*600,ty=t.aimY!==undefined?t.aimY:t.y+Math.sin(t.ta)*600;
     let d=hyp(tx-t.x,ty-t.y);if(d>t.cls.maxRange){tx=t.x+(tx-t.x)/d*t.cls.maxRange;ty=t.y+(ty-t.y)/d*t.cls.maxRange;d=t.cls.maxRange;}
     const dr=artyDisp(t,d)*Math.sqrt(Math.random()),da=Math.random()*TAU;tx+=Math.cos(da)*dr;ty+=Math.sin(da)*dr;
-    shells.push({arty:true,ammo:am,sx:mx,sy:my,tx,ty,x:mx,y:my,h:0,t:0,T:artyFlight(d),peak:90+d*.18,owner:t,team:t.team,dmg:t.s.dmg*am.dmg,splash:t.cls.splash*(am.splash>.9?1:.55),splashK:am.splash,masked:fromHide,dist:0});
+    shells.push({arty:true,ammo:am,sx:mx,sy:my,tx,ty,x:mx,y:my,h:0,t:0,T:artyFlight(d),peak:artyPeak(d),owner:t,team:t.team,dmg:t.s.dmg*am.dmg,splash:t.cls.splash*(am.splash>.9?1:.55),splashK:am.splash,masked:fromHide,dist:0});
   }else{
     const am=AMMO[t.ammo],sp2=t.cls.shellSpeed*am.spd;
     shells.push({x:mx,y:my,px:mx,py:my,vx:Math.cos(a)*sp2,vy:Math.sin(a)*sp2,spd:sp2,maxR:t.cls.maxRange,owner:t,team:t.team,pen:t.s.pen*am.pen,dmg:t.s.dmg*am.dmg,ammo:am,dist:0,masked:fromHide,h0:HH[t.cls.key]*1.35});
@@ -1022,22 +1027,44 @@ function resolveHit(sh,t,h){
     x:sh.x,y:sh.y,vx:sh.vx/sh.spd,vy:sh.vy/sh.spd,he:am.he?1:0,kill:dmg>=t.hp&&wasAlive?1:0});
   if(dmg>0)damage(t,dmg,shooter,{ammo:crit==='Ammo rack'});
 }
+// ---- artillery blast shape ----
+// A shell coming down at an angle throws most of its blast forward along its flight path.
+// The descent angle comes from the arc: steep at short range (blast nearly round), flatter at long range (a cone reaching forward).
+// Reach in each direction: 'back' behind and to the sides, growing linearly to 'fwd' straight ahead inside the cone's half-angle.
+// Damage and stun fall off linearly along every ray, from full at the impact point to zero at the reach.
+function blastGeom(sx,sy,tx,ty,R){
+  const d=Math.max(1,hyp(tx-sx,ty-sy)),peak=artyPeak(d);
+  // e: 0 for a steep drop (above ~53 degrees, point blank), 1 for the flat long-range arcs (~32 degrees)
+  const fall=Math.atan2(4*peak,d),e=clamp((Math.cos(fall)-.6)/.25,0,1);
+  return {dir:Math.atan2(ty-sy,tx-sx),e,fall,back:R*(1-.3*e),fwd:R*(1+1.0*e),half:lerp(1.6,.7,e)};
+}
+function blastReach(g,ang){const b=Math.abs(angDiff(g.dir,ang));return b>=g.half?g.back:g.back+(g.fwd-g.back)*(1-b/g.half);}
+// 0 at the impact point, 1 at the edge of the blast
+function blastN(g,x0,y0,px,py){const r=hyp(px-x0,py-y0);return r<1e-6?0:r/blastReach(g,Math.atan2(py-y0,px-x0));}
+// closest a tank's hull gets to the impact, in blast units (hull sampled at centre, corners and edge midpoints)
+function blastNTank(g,x0,y0,t){
+  const c=Math.cos(t.a),sn=Math.sin(t.a),hl=t.cls.len/2,hw=t.cls.wid/2;let n=Infinity;
+  for(const u of [-1,0,1])for(const v of [-1,0,1]){const lx=u*hl,ly=v*hw;n=Math.min(n,blastN(g,x0,y0,t.x+lx*c-ly*sn,t.y+lx*sn+ly*c));}
+  return n;
+}
+function blastPoly(g,x0,y0,k=1,n=64){const pts=[];for(let i=0;i<n;i++){const a=g.dir+TAU*i/n,r=blastReach(g,a)*k;pts.push([x0+Math.cos(a)*r,y0+Math.sin(a)*r]);}return pts;}
+const STUN_REACH=1.75;
 function artyImpact(s){
-  const shooter=s.owner,R=s.splash;
-  const ev={k:'arty',x:s.x,y:s.y,R,sid:shooter?shooter.id:-1,stun:[],hits:[],best:'',total:0};
-  for(const tr of trees)if(tr.alive&&hyp(tr.x-s.x,tr.y-s.y)<R*.6)knockTreeSim(tr,Math.atan2(tr.y-s.y,tr.x-s.x));
+  const shooter=s.owner,R=s.splash,g=blastGeom(s.sx,s.sy,s.x,s.y,R);
+  const ev={k:'arty',x:s.x,y:s.y,R,dir:+g.dir.toFixed(3),e:+g.e.toFixed(3),sid:shooter?shooter.id:-1,stun:[],hits:[],best:'',total:0};
+  for(const tr of trees)if(tr.alive&&blastN(g,s.x,s.y,tr.x,tr.y)<.6)knockTreeSim(tr,Math.atan2(tr.y-s.y,tr.x-s.x));
   let direct=null;
   for(const t of tanks){
     if(!t.alive||t.team===s.team)continue;
     const c=Math.cos(t.a),sn=Math.sin(t.a),dx=s.x-t.x,dy=s.y-t.y,lx=dx*c+dy*sn,ly=-dx*sn+dy*c;
     if(Math.abs(lx)<=t.cls.len/2+2&&Math.abs(ly)<=t.cls.wid/2+2){direct=t;break;}
   }
-  const SR=R*1.75,dmgs=[];
+  const dmgs=[];
   for(const t of tanks){
     if(!t.alive||t.team===s.team)continue;
-    const sd=t===direct?0:Math.max(0,hyp(t.x-s.x,t.y-s.y)-t.cls.len*.4);
-    if(sd<SR){
-      const dur=(t===direct?12:lerp(10,4,sd/SR))*(s.splashK>.9?1:.6);
+    const n=t===direct?0:blastNTank(g,s.x,s.y,t),sn=n/STUN_REACH;
+    if(sn<1){
+      const dur=(t===direct?12:lerp(10,4,sn))*(s.splashK>.9?1:.6);
       if(dur>=t.stun){t.stun=dur;t.stunMax=dur;t.stunBy=shooter;}
       if(shooter)shooter.st.stunned++;
       ev.stun.push([t.id,Math.round(dur)]);
@@ -1047,8 +1074,8 @@ function artyImpact(s){
       dmg=Math.round(s.dmg*rand(.8,1.2));
       if(Math.random()<.4){const k=['tracks','gun','engine','fire'][Math.floor(Math.random()*4)];if(k!=='fire'||t.fireImmune<=0){t.mods[k]={tracks:4,gun:6,engine:8,fire:5}[k];crit={tracks:'Tracks',gun:'Gun breech',engine:'Engine',fire:'Fire'}[k];}}
     }else{
-      const d=Math.max(0,hyp(t.x-s.x,t.y-s.y)-t.cls.len*.4);if(d>=R)continue;
-      const f=1-d/R;dmg=Math.round(s.dmg*.32*s.splashK*f*Math.max(0,1-t.s.armor.s/250));
+      if(n>=1)continue;
+      const f=1-n;dmg=Math.round(s.dmg*.32*s.splashK*f*Math.max(0,1-t.s.armor.s/250));
       if(f>.5&&Math.random()<.3){t.mods.tracks=4;crit='Tracks';}
     }
     if(dmg<=0)continue;
@@ -1084,10 +1111,12 @@ function kill(t,src,ammo){
   if(src&&src!==t){src.kills++;src.st.kills++;}
   fx({k:'kill',id:t.id,src:src&&src!==t?src.id:-1,ammo:ammo?1:0});
 }
-function stampCrater(x,y,r){
+function stampCrater(x,y,r,dir=0,e=0){
   if(!dctx)return;
-  const g=dctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,'rgba(20,18,13,.75)');g.addColorStop(.7,'rgba(30,27,20,.45)');g.addColorStop(1,'rgba(30,27,20,0)');
-  dctx.fillStyle=g;dctx.beginPath();dctx.arc(x,y,r,0,TAU);dctx.fill();
+  // a shallow shell leaves a scorch stretched forward along its flight
+  dctx.save();dctx.translate(x,y);dctx.rotate(dir);dctx.translate(r*e*.7,0);dctx.scale(1+e*1.1,1-e*.25);
+  const g=dctx.createRadialGradient(0,0,0,0,0,r);g.addColorStop(0,'rgba(20,18,13,.75)');g.addColorStop(.7,'rgba(30,27,20,.45)');g.addColorStop(1,'rgba(30,27,20,0)');
+  dctx.fillStyle=g;dctx.beginPath();dctx.arc(0,0,r,0,TAU);dctx.fill();dctx.restore();
 }
 function knockTreeSim(tr,dir){if(!tr.alive)return;tr.alive=false;fx({k:'tree',i:trees.indexOf(tr),dir});}
 function knockTree(tr,dir){
@@ -1142,9 +1171,10 @@ function runFx(ev){
     break;}
   case 'arty':{
     const sh=tankById(ev.sid);
-    for(let i=0;i<26;i++)parts.push({x:ev.x,y:ev.y,vx:rand(-1,1)*rand(40,260),vy:rand(-1,1)*rand(40,260),life:rand(.3,.8),max:.8,size:rand(6,14),c:Math.random()<.4?'fireball':'dust'});
+    const bd=ev.dir||0,be=ev.e||0;
+    for(let i=0;i<26;i++){const fw=Math.random()<.4+be*.5,a=fw?bd+rand(-.7,.7):rand(0,TAU),v=rand(40,260)*(fw?1+be:1);parts.push({x:ev.x,y:ev.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.3,.8),max:.8,size:rand(6,14),c:Math.random()<.4?'fireball':'dust'});}
     for(let i=0;i<8;i++)parts.push({x:ev.x+rand(-20,20),y:ev.y+rand(-20,20),vx:rand(-20,20),vy:rand(-20,20),life:rand(1,2),max:2,size:rand(14,26),c:'smoke'});
-    stampCrater(ev.x,ev.y,ev.R*.35);flash3D(ev.x,ev.y,20,4);
+    stampCrater(ev.x,ev.y,ev.R*.35,bd,be);flash3D(ev.x,ev.y,20,4);
     sfx('boom',Math.max(.25,clamp(1-hyp(ev.x-cam.x,ev.y-cam.y)/1400,0,1))*.8);
     if(hyp(ev.x-cam.x,ev.y-cam.y)<500)shake=Math.max(shake,7);
     for(const[id,dur]of ev.stun){const t=tankById(id);if(!t)continue;addFloat(t.x,t.y+t.cls.len*.6+12,'STUNNED','#f2d36b',11);
@@ -1769,7 +1799,7 @@ function aiUpdate(t,dt){
     ai.fireDelay-=dt;
     if(ai.fireDelay<=0&&(t.bloom<cfg.diff.bloom||ai.fireDelay<-1.5)){
       let friendly;
-      if(c.arty)friendly=tanks.some(o=>o!==t&&o.alive&&o.team===t.team&&hyp(o.x-ax,o.y-ay)<c.splash+60);
+      if(c.arty){const bg=blastGeom(t.x,t.y,ax,ay,c.splash);friendly=tanks.some(o=>o!==t&&o.alive&&o.team===t.team&&blastNTank(bg,ax,ay,o)<1.35);}
       else{const ex=t.x+Math.cos(t.ta)*dist,ey=t.y+Math.sin(t.ta)*dist;friendly=tanks.some(o=>o!==t&&o.alive&&o.team===t.team&&segTank(t.x,t.y,ex,ey,o));}
       if(!friendly){fire(t);if(c.arty)ai.ex=undefined;const nx=chooseAmmo(t,tg.blind?null:tg);if(nx!==t.ammo&&t.ammoCount[nx]>0)t.ammo=nx;}
       else ai.fireDelay=.4;
@@ -2094,7 +2124,9 @@ function drawAim(){
     const aligned=Math.abs(angDiff(player.ta,Math.atan2(ay-player.y,ax-player.x)))<.05;
     ctx.setLineDash([6/cam.z,8/cam.z]);ctx.strokeStyle='rgba(235,230,210,.18)';ctx.lineWidth=1.2/cam.z;ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(ax,ay);ctx.stroke();ctx.setLineDash([]);
     ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.55)';ctx.lineWidth=2/cam.z;ctx.beginPath();ctx.arc(ax,ay,r,0,TAU);ctx.stroke();
-    ctx.strokeStyle='rgba(226,181,64,.3)';ctx.beginPath();ctx.arc(ax,ay,player.cls.splash*(player.ammo==='HE'?1:.55),0,TAU);ctx.stroke();
+    {const bg=blastGeom(player.x,player.y,ax,ay,player.cls.splash*(player.ammo==='HE'?1:.55));
+     ctx.fillStyle='rgba(226,181,64,.07)';ctx.strokeStyle='rgba(226,181,64,.38)';ctx.beginPath();blastPoly(bg,ax,ay).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();ctx.stroke();
+     ctx.strokeStyle='rgba(242,211,107,.16)';ctx.setLineDash([4/cam.z,6/cam.z]);ctx.beginPath();blastPoly(bg,ax,ay,STUN_REACH).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.stroke();ctx.setLineDash([]);}
     const rp=1-player.reloadT/player.reloadMax;ctx.strokeStyle=player.reloadT<=0?'#e2b540':'rgba(235,230,210,.55)';ctx.lineWidth=3/cam.z;ctx.beginPath();ctx.arc(ax,ay,r+7/cam.z,-Math.PI/2,-Math.PI/2+TAU*rp);ctx.stroke();
     ctx.lineWidth=1.5/cam.z;ctx.beginPath();ctx.moveTo(ax-8/cam.z,ay);ctx.lineTo(ax+8/cam.z,ay);ctx.moveTo(ax,ay-8/cam.z);ctx.lineTo(ax,ay+8/cam.z);ctx.stroke();
     ctx.strokeStyle='rgba(226,181,64,.12)';ctx.setLineDash([12/cam.z,10/cam.z]);ctx.beginPath();ctx.arc(player.x,player.y,player.cls.maxRange,0,TAU);ctx.stroke();ctx.setLineDash([]);
@@ -2704,7 +2736,10 @@ function drawAim3D(){
     const aligned=Math.abs(angDiff(P.ta,Math.atan2(ay-P.y,ax-P.x)))<.05;
     ctx.strokeStyle='rgba(226,181,64,.16)';ctx.setLineDash([12,10]);ctx.lineWidth=1.2;if(gPath(P.x,P.y,P.cls.maxRange))ctx.stroke();ctx.setLineDash([]);
     ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.6)';ctx.lineWidth=2;if(gPath(ax,ay,r))ctx.stroke();
-    ctx.strokeStyle='rgba(226,181,64,.32)';ctx.lineWidth=1.5;if(gPath(ax,ay,P.cls.splash*(P.ammo==='HE'?1:.55)))ctx.stroke();
+    {const bg=blastGeom(P.x,P.y,ax,ay,P.cls.splash*(P.ammo==='HE'?1:.55));
+     const poly=(k)=>{let st=false,any=false;ctx.beginPath();for(const[x,y]of blastPoly(bg,ax,ay,k)){const q=proj(x,y,1);if(!q){st=false;continue;}if(!st){ctx.moveTo(q.x,q.y);st=true;}else ctx.lineTo(q.x,q.y);any=true;}if(any)ctx.closePath();return any;};
+     ctx.lineWidth=1.5;if(poly(1)){ctx.fillStyle='rgba(226,181,64,.08)';ctx.fill();ctx.strokeStyle='rgba(226,181,64,.42)';ctx.stroke();}
+     ctx.setLineDash([5,7]);ctx.strokeStyle='rgba(242,211,107,.2)';if(poly(STUN_REACH))ctx.stroke();ctx.setLineDash([]);}
     const rp=1-P.reloadT/P.reloadMax;ctx.strokeStyle=P.reloadT<=0?'#e2b540':'rgba(235,230,210,.55)';ctx.lineWidth=3;if(gPath(ax,ay,r+9,-Math.PI/2,-Math.PI/2+TAU*rp))ctx.stroke();
     const c=proj(ax,ay,1);if(c){ctx.lineWidth=1.5;ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.6)';ctx.beginPath();ctx.moveTo(c.x-8,c.y);ctx.lineTo(c.x+8,c.y);ctx.moveTo(c.x,c.y-8);ctx.lineTo(c.x,c.y+8);ctx.stroke();
       ctx.font=FONT(600,11);ctx.fillStyle='#e2b540';const lf=c.x>vw-150;ctx.textAlign=lf?'right':'left';ctx.fillText(`${artyFlight(d).toFixed(1)} S FLIGHT`,lf?c.x-16:c.x+16,c.y-10);}
