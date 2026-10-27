@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.7</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.8</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -443,7 +443,7 @@ fieldset.slab{display:block}
         <li><b>Proximity</b>Within 100 m (the small dotted ring around you) every enemy is spotted automatically, even in a bush or around the corner of a building.</li>
         <li><b>Firing</b>Firing reveals you for 4 s to every enemy within 1.5× its view range unless a rock or building is in between. Bushes don't hide a muzzle flash. Exception: if you're unspotted and inside a bush, firing only leaves a sound ring. Repeat shots tighten it. Being hit also shows your HP marker for 4 s.</li>
         <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fly flat and throw a long cone ahead of the impact. Long shots are lobbed high, come down steeply and splash almost evenly all round. Flight time runs from 0.1 s point blank to 2 s at 1500 m. Shells hit rocks, walls and buildings in their path: low, close shots are stopped by cover, high lobs clear it. The reticle marks a blocked shot with a red X. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. Only a direct hit counts as a penetration in your battle stats. Splash is listed separately. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
-        <li><b>Rocket artillery</b>The Tempest and Cyclone (rocket branch off the Howler, tiers II and III) fire a salvo of 12 or 16 rockets that scatter over a wide circle around your aim point, then reload for 20 s (Tempest) or 25 s (Cyclone). Each rocket has its own blast and stuns like a full shell. The artillery line continues from the Howler with heavier howitzers (Thunder II, Colossus III); the rockets are a side branch off the Howler. A salvo usually lands several hits on anything inside the circle and softens every tank near it.</li>
+        <li><b>Rocket artillery</b>The Tempest and Cyclone (rocket branch off the Howler, tiers II and III) fire a salvo of 12 or 16 rockets that scatter over a wide circle around your aim point, then reload for 20 s (Tempest) or 25 s (Cyclone). Each rocket has its own blast and stuns like a full shell. Rockets fly twice as long as a howitzer shell (up to 4 s), so their landing zones give enemies time to drive out. The artillery line continues from the Howler with heavier howitzers (Thunder II, Colossus III); the rockets are a side branch off the Howler. A salvo usually lands several hits on anything inside the circle and softens every tank near it.</li>
         <li><b>Tech tree</b>Every line has three tiers. Battles earn XP for the vehicle you drove; enough XP researches the next vehicle in that line (2,500 XP for tier II, 6,000 for tier III), and credits buy it (12,000 and 30,000). Bots in your battles come from your tier, sometimes one above or below.</li>
         <li><b>Training ground</b>Pick Training as the battle mode to practise with your own vehicles, or press Test drive on any vehicle in the Tech tree to try it once, stock, without buying it. Stationary targets of every class never move or shoot but still spot you. Each hit you land is explained on screen: plate, angle, effective armor, your pen at that range and the damage. Ammo is unlimited, destroyed targets come back after 4 s, and nothing is earned.</li>
         <li><b>Incoming fire</b>The moment an enemy SPG fires, the landing zone of its shell shows on the ground in red, and the inner area fills up as impact gets closer. Drive out of it. A whistle plays when it is aimed within 300 m of you.</li>
@@ -529,6 +529,8 @@ const SPEED_MUL=.85,BATTLE_TIME=420,CAP_MUL=.8;
 // start-of-battle countdown: nobody drives or fires (turrets can aim) and the clock waits until it reaches zero
 // rocket warheads: share of their damage dealt as blast at the impact point (falls off to the blast edge)
 let ROCKET_SPLASH=1;
+// rockets fly twice as long as a howitzer shell over the same distance, so there is time to leave the zone
+const ROCKET_FLIGHT=2;
 const COUNTDOWN=5;let startT=0,goT=0;
 // training: the last hit you landed, explained (shown on screen for a few seconds)
 let trainHit=null;
@@ -1146,7 +1148,7 @@ function salvoStep(t,dt){
     const tx=clamp(S.tx+Math.cos(a)*r,0,W),ty=clamp(S.ty+Math.sin(a)*r,0,H);
     const side=(S.left%2?1:-1)*t.cls.wid*.18,mx=t.x+Math.cos(t.ta)*t.cls.len*.2-Math.sin(t.ta)*side,my=t.y+Math.sin(t.ta)*t.cls.len*.2+Math.cos(t.ta)*side;
     const d=hyp(tx-mx,ty-my);
-    const sh={arty:true,rocket:true,ammo:ARTY_AMMO.HE,sx:mx,sy:my,tx,ty,x:mx,y:my,h:0,t:0,T:artyFlight(d)*.75,peak:artyPeak(d)*.55,owner:t,team:t.team,dmg:t.s.dmg,splash:t.cls.splash,splashK:1,stunK:1,masked:S.hide,dist:0};
+    const sh={arty:true,rocket:true,ammo:ARTY_AMMO.HE,sx:mx,sy:my,tx,ty,x:mx,y:my,h:0,t:0,T:artyFlight(d)*ROCKET_FLIGHT,peak:artyPeak(d)*.55,owner:t,team:t.team,dmg:t.s.dmg,splash:t.cls.splash,splashK:1,stunK:1,masked:S.hide,dist:0};
     const hit=artyPathHit(sh.sx,sh.sy,sh.tx,sh.ty,sh.peak);if(hit)sh.stopP=hit.p;
     shells.push(sh);
     fx({k:'rocket',id:t.id,x:mx,y:my,hide:S.hide?1:0});
@@ -2405,7 +2407,7 @@ function aiUpdate(t,dt){
   drive(t,dt,thr,clamp(d*3,-1,1));
   // --- aim and fire ---
   if(!tg){traverse(t,dt,holdFace!=null?holdFace:Math.atan2(H/2-t.y,enemySideX-t.x));return;}
-  const flight=c.arty?artyFlight(dist):dist/(c.shellSpeed*AMMO[t.ammo in AMMO?t.ammo:'AP'].spd);
+  const flight=c.rocket?artyFlight(dist)*ROCKET_FLIGHT:c.arty?artyFlight(dist):dist/(c.shellSpeed*AMMO[t.ammo in AMMO?t.ammo:'AP'].spd);
   if(c.arty&&ai.ex===undefined){const e=55*cfg.diff.acc;ai.ex=rand(-1,1)*e;ai.ey=rand(-1,1)*e;}
   const lead=c.arty?.85:1;
   const ax=tg.x+tg.vx*flight*lead+(c.arty?ai.ex:0),ay=tg.y+tg.vy*flight*lead+(c.arty?ai.ey:0),aim=Math.atan2(ay-t.y,ax-t.x);
@@ -2847,7 +2849,7 @@ function drawAim(){
     ctx.lineWidth=1.5/cam.z;ctx.beginPath();ctx.moveTo(ax-8/cam.z,ay);ctx.lineTo(ax+8/cam.z,ay);ctx.moveTo(ax,ay-8/cam.z);ctx.lineTo(ax,ay+8/cam.z);ctx.stroke();
     ctx.strokeStyle='rgba(226,181,64,.12)';ctx.setLineDash([12/cam.z,10/cam.z]);ctx.beginPath();ctx.arc(player.x,player.y,player.cls.maxRange,0,TAU);ctx.stroke();ctx.setLineDash([]);
     ctx.setTransform(dpr,0,0,dpr,0,0);const sc=toScreen(ax,ay);ctx.font=FONT(600,11);ctx.fillStyle='#e2b540';const lf=sc.x>vw-150;ctx.textAlign=lf?'right':'left';
-    ctx.fillText(`${artyFlight(d).toFixed(1)} S FLIGHT`,lf?sc.x-r*cam.z-12:sc.x+r*cam.z+12,sc.y+4);
+    ctx.fillText(`${(artyFlight(d)*(player.cls.rocket?ROCKET_FLIGHT:1)).toFixed(1)} S FLIGHT`,lf?sc.x-r*cam.z-12:sc.x+r*cam.z+12,sc.y+4);
     return;
   }
   const pr=predictShot(player);
@@ -3552,7 +3554,7 @@ function drawAim3D(){
      ctx.setLineDash([5,7]);ctx.strokeStyle='rgba(242,211,107,.2)';if(poly(STUN_REACH))ctx.stroke();ctx.setLineDash([]);}
     const rp=1-P.reloadT/P.reloadMax;ctx.strokeStyle=P.reloadT<=0?'#e2b540':'rgba(235,230,210,.55)';ctx.lineWidth=3;if(gPath(ax,ay,r+9,-Math.PI/2,-Math.PI/2+TAU*rp))ctx.stroke();
     const c=proj(ax,ay,1);if(c){ctx.lineWidth=1.5;ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.6)';ctx.beginPath();ctx.moveTo(c.x-8,c.y);ctx.lineTo(c.x+8,c.y);ctx.moveTo(c.x,c.y-8);ctx.lineTo(c.x,c.y+8);ctx.stroke();
-      ctx.font=FONT(600,11);ctx.fillStyle='#e2b540';const lf=c.x>vw-150;ctx.textAlign=lf?'right':'left';ctx.fillText(`${artyFlight(d).toFixed(1)} S FLIGHT`,lf?c.x-16:c.x+16,c.y-10);}
+      ctx.font=FONT(600,11);ctx.fillStyle='#e2b540';const lf=c.x>vw-150;ctx.textAlign=lf?'right':'left';ctx.fillText(`${(artyFlight(d)*(player.cls.rocket?ROCKET_FLIGHT:1)).toFixed(1)} S FLIGHT`,lf?c.x-16:c.x+16,c.y-10);}
     return;
   }
   const pr=predictShot(P),hh=HH[P.cls.line];
