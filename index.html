@@ -408,7 +408,8 @@ fieldset.slab{display:block}
         <li><b>Effective armor</b>A shell pens when it beats <code>plate ÷ cos(angle)</code>. Past 70° AP and APCR bounce. The reticle turns green, yellow or red for the plate under it.</li>
         <li><b>Ammo</b>AP is the standard round. APCR has 25% more pen and flies faster but loses pen at range. HE never bounces, wrecks modules and splashes damage through thin armor even without a pen.</li>
         <li><b>View range</b>Each vehicle spots enemies only inside its view circle: Light 760 m, Medium and Sniper 600 m, Heavy 470 m, SPG 430 m. Your team shares what anyone sees.</li>
-        <li><b>Sight lines</b>Inside that range, an enemy is visible when anyone on your team has a line to it that no bush, tree or smoke cuts. Cover you sit in doesn't block your own view. Within 95 m everyone is seen, cover or not.</li>
+        <li><b>Sight lines</b>Inside that range, an enemy is visible when anyone on your team has a line to it that no building, wall, rock, bush, tree or smoke cuts. A bush or tree you sit in doesn't block your own view.</li>
+        <li><b>Proximity</b>Within 100 m (the small dotted ring around you) every enemy is spotted automatically, even in a bush or around the corner of a building.</li>
         <li><b>Firing</b>Firing reveals you for 4 s to every enemy within 1.5× its view range unless a rock or building is in between. Bushes don't hide a muzzle flash. Exception: if you're unspotted and inside a bush, firing only leaves a sound ring. Repeat shots tighten it. Being hit also shows your HP marker for 4 s.</li>
         <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fly flat and throw a long cone ahead of the impact. Long shots are lobbed high, come down steeply and splash almost evenly all round. Flight time runs from 0.1 s point blank to 2 s at 1500 m. Shells hit rocks, walls and buildings in their path: low, close shots are stopped by cover, high lobs clear it. The reticle marks a blocked shot with a red X. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. Only a direct hit counts as a penetration in your battle stats. Splash is listed separately. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
         <li><b>Stun</b>Artillery shells stun every enemy inside a zone of the same shape, 1.75× larger, for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
@@ -416,7 +417,7 @@ fieldset.slab{display:block}
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
         <li><b>Terrain</b>Trees fall when you drive into them. Shallow fords and marsh slow you. Deep river water is impassable. Ram enemies at speed for damage. Heavier tanks win.</li>
         <li><b>Views</b>Tactical 3D looks down with north up. Chase puts the camera behind your hull. Classic 2D is the top-down map. Switch with <kbd>V</kbd> or the view button under the timer.</li>
-        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Phone: left thumb drives, right thumb drags the aim and fires on release. Aim stays where you left it. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
+        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Reversing steers like a car backing up: <kbd>S</kbd>+<kbd>A</kbd> swings the rear left. Phone: left thumb drives, right thumb drags the aim and fires on release. Aim stays where you left it; if it was off screen it comes back to normal range. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
       </ul>
     </section>
     <section class="tab" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
@@ -487,6 +488,12 @@ const W=2600,H=1700,GRID=260,MARKER_TIME=4;
 const gridLabel=(x,y)=>String.fromCharCode(65+clamp(Math.floor(y/GRID),0,25))+(clamp(Math.floor(x/GRID),0,99)+1);
 
 // ================= data =================
+// pacing: top speeds are scaled by SPEED_MUL; battles run BATTLE_TIME seconds
+const SPEED_MUL=.85,BATTLE_TIME=420,CAP_MUL=.8;
+// start-of-battle countdown: nobody drives or fires (turrets can aim) and the clock waits until it reaches zero
+const COUNTDOWN=5;let startT=0,goT=0;
+// proximity spotting: inside this radius an enemy is always seen, through bushes, smoke, buildings and rocks
+const PROXY=100;
 const CLASSES={
   light:{key:'light',view:760,name:'Kestrel',type:'Light',role:'Scout',blurb:'Fast scout. Paper armor, quick reload. Spot from bushes, hit sides and rears, never stop moving.',hp:950,speed:165,rot:2.6,trot:2.9,armor:{f:45,s:28,r:20},pen:158,dmg:170,reload:2.4,len:30,wid:19,range:470,acc:.03,bw:3.2,tr:.36,mass:1},
   medium:{key:'medium',view:600,name:'Halberd',type:'Medium',role:'Brawler',blurb:'All-rounder. Enough pen for most fronts, enough speed to take the flank that opens.',hp:1400,speed:112,rot:1.8,trot:1.9,armor:{f:95,s:55,r:38},pen:196,dmg:250,reload:4.0,len:36,wid:22,range:380,acc:.024,bw:4.2,tr:.38,mass:1.5},
@@ -533,7 +540,7 @@ const PAL={
 function derive(c,up){
   const g=up.gun||0,a=up.armor||0,e=up.engine||0;
   return {hp:Math.round(c.hp*1.2*(1+.05*a)),armor:{f:c.armor.f*(1+.07*a),s:c.armor.s*(1+.07*a),r:c.armor.r*(1+.07*a)},
-    pen:c.pen*(1+.05*g),dmg:c.dmg*(1+.04*g),reload:c.reload*(1-.04*g),speed:c.speed*(1+.06*e),rot:c.rot*(1+.06*e),trot:c.trot*(1+.05*e)};
+    pen:c.pen*(1+.05*g),dmg:c.dmg*(1+.04*g),reload:c.reload*(1-.04*g),speed:c.speed*SPEED_MUL*(1+.06*e),rot:c.rot*(1+.06*e),trot:c.trot*(1+.05*e)};
 }
 
 // ================= save =================
@@ -589,6 +596,8 @@ function sfx(kind,vol=1){
     if(kind==='lamp'){tone(880,880,.12,.07*vol,'square');setTimeout(()=>{try{tone(1320,1320,.16,.06*vol,'square');}catch(e){}},130);return;}
     if(kind==='cap'){tone(520,520,.08,.05*vol,'square');return;}
     if(kind==='click'){tone(1800,1200,.05,.05*vol,'square');return;}
+    if(kind==='tick'){tone(660,660,.09,.07*vol,'square');return;}
+    if(kind==='go'){tone(880,880,.1,.08*vol,'square');setTimeout(()=>{try{tone(1320,1320,.28,.08*vol,'square');}catch(e){}},110);return;}
     if(kind==='repair'){tone(400,900,.18,.06*vol);return;}
     const t=actx.currentTime,g=actx.createGain();g.connect(actx.destination);
     const s=actx.createBufferSource();s.buffer=noiseBuf;const f=actx.createBiquadFilter();f.type='lowpass';
@@ -841,7 +850,7 @@ function navLine(x0,y0,x1,y1){const d=hyp(x1-x0,y1-y0),n=Math.ceil(d/16);for(let
 // ================= state =================
 let bushes=[],bushLayer=null,trees=[],rings=[],craters=[],clouds=[],pings=[],bases=[];
 let obstacles=[],terrain=null,decal=null,dctx=null,tanks=[],shells=[],parts=[],floats=[],feed=[],arcs=[];
-let player=null,mode='menu',battleTime=0,timeLeft=360,banner=null,shake=0,hintT=0,deadT=0,spectate=null,endShown=false;
+let player=null,mode='menu',battleTime=0,timeLeft=BATTLE_TIME,banner=null,shake=0,hintT=0,deadT=0,spectate=null,endShown=false;
 let stats={},timeScale=1,slowT=0,sixthT=0,scope=false,userZoom=1,cfg=null,result=null;
 const cam={x:W/2,y:H/2,z:1};
 let uiButtons=[],mmRect=null,pauseRect=null,viewRect=null;
@@ -875,7 +884,7 @@ function newBattle(opts={}){
   for(const o of obstacles)if(o.h3===undefined)o.h3=obsHeight(o);
   terrain=renderTerrain(M);bushLayer=renderBushes(bushes);buildNav();
   decal=document.createElement('canvas');decal.width=W/2;decal.height=H/2;dctx=decal.getContext('2d');dctx.scale(.5,.5);
-  rings=[];craters=[];clouds=[];pings=[];shells=[];parts=[];floats=[];feed=[];arcs=[];banner=null;battleTime=0;timeLeft=360;endShown=false;deadT=0;spectate=null;
+  rings=[];craters=[];clouds=[];pings=[];shells=[];parts=[];floats=[];feed=[];arcs=[];banner=null;battleTime=0;timeLeft=BATTLE_TIME;endShown=false;deadT=0;spectate=null;
   timeScale=1;slowT=0;sixthT=0;scope=false;result=null;touchAimPt=null;touchOff=null;touchBase=null;
   bases=cfg.mode==='encounter'?[{x:M.enc.x,y:M.enc.y,r:105,team:-1,pts:[0,0]}]:[{x:230,y:850,r:105,team:0,pts:[0,0]},{x:W-230,y:850,r:105,team:1,pts:[0,0]}];
   const me=opts.me||'local';
@@ -892,12 +901,12 @@ function newBattle(opts={}){
   stats=player.st;
   const n=cfg.size;
   cam.x=player.x+(player.team===0?300:-300);cam.y=player.y;cam.z=baseZoom()*player.cls.zoom;
-  hintT=10;mode='play';
+  hintT=10;mode='play';startT=COUNTDOWN;goT=0;
   document.getElementById('deadbar').hidden=true;
   disposeWorld();
   if(view!=='2d'){if(!build3D())view='2d';}
   showGL();camYaw=-Math.PI/2;
-  setBanner(MAPS[cfg.map].name,`${cfg.mode==='encounter'?'Encounter':'Standard battle'} · ${n} v ${n} · ${cfg.diff.name} · ${SKIES[cfg.sky].name}`,'#e2b540');banner.life=3.2;
+  setBanner(MAPS[cfg.map].name,`${cfg.mode==='encounter'?'Encounter':'Standard battle'} · ${n} v ${n} · ${cfg.diff.name} · ${SKIES[cfg.sky].name}`,'#e2b540');banner.life=COUNTDOWN+.6;
   return roster;
 }
 function buildRoster(humans){
@@ -966,8 +975,25 @@ function segCircle(x0,y0,x1,y1,cx,cy,r){
   const dx=x1-x0,dy=y1-y0,l2=dx*dx+dy*dy;let u=l2?((cx-x0)*dx+(cy-y0)*dy)/l2:0;u=clamp(u,0,1);
   const px=x0+dx*u-cx,py=y0+dy*u-cy;return px*px+py*py<r*r;
 }
-// bushes, standing trees and smoke cut sight lines; cover the observer sits in does not block its own view
+// does a straight line pass through a building, wall or rock?
+function segHard(x0,y0,x1,y1){
+  const mnx=Math.min(x0,x1),mxx=Math.max(x0,x1),mny=Math.min(y0,y1),mxy=Math.max(y0,y1),dx=x1-x0,dy=y1-y0;
+  for(const o of obstacles){
+    if(o.k==='rock'){if(o.x+o.r<mnx||o.x-o.r>mxx||o.y+o.r<mny||o.y-o.r>mxy)continue;if(segCircle(x0,y0,x1,y1,o.x,o.y,o.r*.9))return true;continue;}
+    if(o.x>mxx||o.x+o.w<mnx||o.y>mxy||o.y+o.h<mny)continue;
+    // slab test against the rectangle
+    let t0=0,t1=1,ok=true;
+    for(const [p,d,lo,hi] of [[x0,dx,o.x,o.x+o.w],[y0,dy,o.y,o.y+o.h]]){
+      if(Math.abs(d)<1e-9){if(p<lo||p>hi){ok=false;break;}continue;}
+      let a=(lo-p)/d,b=(hi-p)/d;if(a>b){const q=a;a=b;b=q;}t0=Math.max(t0,a);t1=Math.min(t1,b);if(t0>t1){ok=false;break;}
+    }
+    if(ok)return true;
+  }
+  return false;
+}
+// buildings, walls, rocks, bushes, standing trees and smoke cut sight lines; cover the observer sits in does not block its own view
 function sightClear(o,t){
+  if(segHard(o.x,o.y,t.x,t.y))return false;
   for(const b of bushes){if(hyp(o.x-b.x,o.y-b.y)<b.r)continue;if(segCircle(o.x,o.y,t.x,t.y,b.x,b.y,b.r*.85))return false;}
   for(const b of trees){if(!b.alive)continue;if(hyp(o.x-b.x,o.y-b.y)<b.r+8)continue;if(segCircle(o.x,o.y,t.x,t.y,b.x,b.y,b.r*.8))return false;}
   for(const c of clouds){if(c.life<1.2)continue;const r=c.r*Math.min(1,(c.max-c.life)/1.2+.4);if(hyp(o.x-c.x,o.y-c.y)<r)continue;if(segCircle(o.x,o.y,t.x,t.y,c.x,c.y,r*.9))return false;}
@@ -985,7 +1011,7 @@ function updateVisibility(dt){
     let byEnemy=false;t.spotters.length=0;
     for(const o of tanks){
       if(!o.alive||o.team===t.team)continue;
-      const dd=hyp(o.x-t.x,o.y-t.y);if(dd<95||(dd<=o.cls.view&&sightClear(o,t))){byEnemy=true;t.spotters.push(o);if(o.st.spotted instanceof Set)o.st.spotted.add(t.id);}
+      const dd=hyp(o.x-t.x,o.y-t.y);if(dd<PROXY||(dd<=o.cls.view&&sightClear(o,t))){byEnemy=true;t.spotters.push(o);if(o.st.spotted instanceof Set)o.st.spotted.add(t.id);}
     }
     t.seenByEnemy=byEnemy;
     t.hidden=!(byEnemy||t.marker>0||t.capturing);
@@ -1016,6 +1042,7 @@ function fx(ev){runFx(ev);if(NET.role==='host')NET.events.push(ev);}
 const tankById=id=>tanks[id];
 function tell(t,text,sub,color){if(!t)return;if(t===player)setBanner(text,sub,color);else if(NET.role==='host'&&t.human)NET.events.push({k:'banner',to:t.id,text,sub,color});}
 function fire(t){
+  if(startT>0)return;
   if(t.ammoCount[t.ammo]<=0){autoSwitch(t);if(t.ammoCount[t.ammo]<=0){if(!t.outT||t.outT<battleTime){t.outT=battleTime+2;tell(t,'Out of ammo','Ram them, spot for your team or capture','#ff8a6e');}t.reloadT=1;t.reloadMax=1;return;}}
   t.ammoCount[t.ammo]--;
   const rl=reloadTime(t);t.reloadT=rl;t.reloadMax=rl;
@@ -1356,7 +1383,18 @@ function beginTouchAim(){
   if(p.cls.arty){if(!touchAimPt)touchAimPt=p.aimX!==undefined?{x:p.aimX,y:p.aimY}:{x:p.x+Math.cos(p.ta)*600,y:p.y+Math.sin(p.ta)*600};touchBase={x:touchAimPt.x,y:touchAimPt.y};}
   else{if(!touchOff)touchOff={x:Math.cos(p.ta)*AIM_REST,y:Math.sin(p.ta)*AIM_REST};touchBase={x:touchOff.x,y:touchOff.y};}
 }
-function releaseTouchAim(){touchBase=null;if(player&&!player.cls.arty)scope=false;}
+function releaseTouchAim(){
+  touchBase=null;
+  if(!player||player.cls.arty)return;
+  scope=false;
+  // aim point off screen when you let go: bring it back to the normal aiming distance (same direction),
+  // so the camera swings back to your tank instead of staying out at the far target
+  if(touchOff){
+    const sp=toScreen(player.x+touchOff.x,player.y+touchOff.y),d=hyp(touchOff.x,touchOff.y);
+    const off=sp.x<0||sp.x>vw||sp.y<0||sp.y>vh;
+    if(off&&d>AIM_REST){touchOff.x*=AIM_REST/d;touchOff.y*=AIM_REST/d;}
+  }
+}
 function moveTouchAim(dx,dy){
   const p=player;if(!p||!touchBase)return;
   if(is3D()){const r=camYaw+Math.PI/2,c=Math.cos(r),sn=Math.sin(r),k=view==='chase'?1.25:1.1;const ndx=(dx*c-dy*sn)*k,ndy=(dx*sn+dy*c)*k;dx=ndx;dy=ndy;}
@@ -1610,6 +1648,7 @@ setInterval(()=>{
     if(NET.conn.relay){NET.conn.ka();if(now-NET.conn.seen>9000)NET.conn.kill();}
     else if((mode==='play'||mode==='pause')&&now-(NET.rx||now)>7000){const c=NET.conn;NET.conn=null;try{c.close();}catch(_){}NET.role='client';clientLost();}
     else try{NET.conn.send({t:'ka'});}catch(_){}
+    if(!NET.pingT||now-NET.pingT>2000){NET.pingT=now;try{NET.conn.send({t:'pg',c:now});}catch(_){}}
   }
 },1000);
 // a stable id for this device, so a dropped player can take their own tank back
@@ -1712,6 +1751,7 @@ function sanitizeUp(u){u=u||{};const f=v=>clamp(Math.floor(+v||0),0,3);return {g
 function hostOnData(conn,d){
   const c=NET.conns.get(conn.peer);if(!c||!d||typeof d!=='object')return;
   c.rx=performance.now();
+  if(d.t==='pg'){try{conn.send({t:'po',c:d.c});}catch(_){}return;}
   if(d.t==='hello'){
     c.name=String(d.name||'Player').replace(/[<>&"]/g,'').slice(0,16)||'Player';c.tank=CLASSES[d.tank]?d.tank:'medium';c.up=sanitizeUp(d.up);c.token=String(d.token||'').slice(0,40);
     if(c.pending){
@@ -1768,6 +1808,7 @@ function hostStart(){
 }
 function clientOnData(d){
   if(!d||typeof d!=='object')return;
+  if(d.t==='po'){const r=performance.now()-(+d.c||0);if(r>=0&&r<10000)NET.rtt=NET.rtt?NET.rtt*.7+r*.3:r;return;}
   if(d.t==='lobby'){NET.lobby=d;NET.mpMode=d.mode;if(mode==='menu'){renderSquad();renderCta();}return;}
   if(d.t==='hostleft'){NET.rejoin=null;clientGiveUp('');return;}
   if(d.t==='full'&&NET.rejoin){const R=NET.rejoin;netReset();NET.rejoin=R;NET.ghost=true;
@@ -1836,7 +1877,7 @@ function netTick(dt){
   NET.sendT-=dt;if(NET.sendT>0)return;NET.sendT=1/15;
   const tk=tanks.map(packTank),sh=shells.map(packShell),b=bases.map(b=>[r1(b.pts[0]),r1(b.pts[1])]),rg=rings.map(r=>[r.team,r1(r.x),r1(r.y),r1(r.r),r1(r.life),r.max]);
   const ev=NET.events;NET.events=[];
-  for(const c of NET.conns.values()){if(!c.conn.open||c.pending)continue;try{c.conn.send({t:'s',tl:r1(timeLeft),tk,sh,b,rg,ev,me:c.tankRef?packMe(c.tankRef):null});}catch(_){}}
+  for(const c of NET.conns.values()){if(!c.conn.open||c.pending)continue;try{c.conn.send({t:'s',tl:r1(timeLeft),cd:r1(startT),tk,sh,b,rg,ev,me:c.tankRef?packMe(c.tankRef):null});}catch(_){}}
 }
 function hostSendEnd(){
   if(NET.role!=='host')return;
@@ -1845,7 +1886,7 @@ function hostSendEnd(){
 }
 // ---- client side: apply snapshots, predict own tank ----
 function applySnap(m){
-  timeLeft=m.tl;
+  timeLeft=m.tl;if(m.cd!==undefined&&Math.abs(m.cd-startT)>.3)startT=m.cd;
   m.tk.forEach((a,i)=>{
     const t=tanks[i];if(!t)return;
     const[x,y,an,ta,hp,fl,mk,stn,stm,spd,dd,kl]=a;
@@ -1870,7 +1911,8 @@ function applySnap(m){
   }
 }
 function clientUpdate(dt){
-  battleTime+=dt;if(mode==='play'){timeLeft=Math.max(0,timeLeft-dt);hintT-=dt;}
+  countdownStep(dt);
+  battleTime+=dt;if(mode==='play'&&startT<=0){timeLeft=Math.max(0,timeLeft-dt);hintT-=dt;}
   for(let i=rings.length-1;i>=0;i--){rings[i].life-=dt;if(rings[i].life<=0)rings.splice(i,1);}
   for(let i=pings.length-1;i>=0;i--){pings[i].life-=dt;if(pings[i].life<=0)pings.splice(i,1);}
   for(let i=clouds.length-1;i>=0;i--){const c=clouds[i];c.life-=dt;c.x+=c.vx*dt;c.y+=c.vy*dt;if(c.life<=0)clouds.splice(i,1);}
@@ -1925,7 +1967,7 @@ function histAt(tm){
   return {x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u,a:a.a+angDiff(a.a,b.a)*u};
 }
 function shiftHist(dx,dy,da){for(const h of NET.hist||[]){h.x+=dx;h.y+=dy;h.a+=da;}}
-function doFire(){if(!player||!player.alive||mode!=='play')return;if(NET.role==='client'){if(player.reloadT<=0){netAct({a:'fire'});player.reloadT=.25;player.bloom=Math.min(1,player.bloom+.55);}}else if(player.reloadT<=0)fire(player);}
+function doFire(){if(!player||!player.alive||mode!=='play'||startT>0)return;if(NET.role==='client'){if(player.reloadT<=0){netAct({a:'fire'});player.reloadT=.25;player.bloom=Math.min(1,player.bloom+.55);}}else if(player.reloadT<=0)fire(player);}
 function doAmmo(k){if(!player||!player.alive)return;if(NET.role==='client'){netAct({a:'ammo',k});sfx('click',1);}else setAmmo(player,k);}
 function doCons(k){if(!player||!player.alive)return;if(NET.role==='client')netAct({a:'cons',k});else useCons(player,k);}
 
@@ -1986,6 +2028,7 @@ function readLocalInput(t){
     if(keys.has('s')||keys.has('arrowdown'))thr-=1;
     if(keys.has('a')||keys.has('arrowleft'))turn-=1;
     if(keys.has('d')||keys.has('arrowright'))turn+=1;
+    if(thr<0)turn=-turn;  // reversing steers like a car backing up: S+A swings the rear to the left
     la=thr!==0||turn!==0;
   }
   let ax=t.aimX,ay=t.aimY;
@@ -2015,6 +2058,7 @@ function controlPlayer(t,dt){
   else applyInput(t,dt,inp,true);
 }
 function drive(t,dt,thr,turn){
+  if(startT>0){thr=0;turn=0;}
   t.prevX=t.x;t.prevY=t.y;
   if(!t.alive){t.spd*=Math.pow(.02,dt);t.turnRate=0;}
   else{
@@ -2205,8 +2249,15 @@ function aiUpdate(t,dt){
 }
 
 // ================= update =================
+function countdownStep(dt){
+  goT=Math.max(0,goT-dt);
+  if(startT<=0)return;
+  const was=Math.ceil(startT);startT=Math.max(0,startT-dt);
+  if(Math.ceil(startT)!==was){if(startT>0)sfx('tick',1);else{goT=1.1;sfx('go',1);}}
+}
 function update(dt){
-  battleTime+=dt;if(mode==='play'){timeLeft-=dt;hintT-=dt;}
+  countdownStep(dt);
+  battleTime+=dt;if(mode==='play'&&startT<=0){timeLeft-=dt;hintT-=dt;}
   updateVisibility(dt);
   for(let i=rings.length-1;i>=0;i--){rings[i].life-=dt;if(rings[i].life<=0)rings.splice(i,1);}
   for(let i=pings.length-1;i>=0;i--){pings[i].life-=dt;if(pings[i].life<=0)pings.splice(i,1);}
@@ -2255,7 +2306,7 @@ function update(dt){
       const capt=tanks.filter(t=>t.alive&&t.team===team&&hyp(t.x-b.x,t.y-b.y)<b.r);
       const def=tanks.some(t=>t.alive&&t.team!==team&&hyp(t.x-b.x,t.y-b.y)<b.r);
       if(capt.length&&!def){
-        const rate=4*Math.min(3,capt.length)*dt,before=b.pts[team];
+        const rate=4*CAP_MUL*Math.min(3,capt.length)*dt,before=b.pts[team];
         b.pts[team]=Math.min(100,b.pts[team]+rate);
         for(const t of capt){t.capContrib+=rate/capt.length;t.capturing=true;t.st.capped+=rate/capt.length;}
         if(Math.floor(before/10)!==Math.floor(b.pts[team]/10))sfx('cap',.8);
@@ -2346,6 +2397,15 @@ function presentStep(dt){
       lx=ox*c-oy*sn;ly=ox*sn+oy*c;
     }
     else{const look=Math.min(vw,vh)/cam.z*(scoping?.38:player.cls.key==='sniper'?.28:.18);lx=Math.cos(player.ta)*look;ly=Math.sin(player.ta)*look;}
+    // Look-ahead must never hide your own tank. Check where the tank actually is on screen (works for 2D, tilted 3D and
+    // chase alike) and shrink the look-ahead while it sits outside the clear area between the top and bottom HUD.
+    if(!player.cls.arty){
+      const sp=toScreen(player.x,player.y),m=34,top=inset.t+64,bot=vh-inset.b-165,left=inset.l+m,right=vw-inset.r-m;
+      const B=Math.max(top+40,bot),out=sp.x<left||sp.x>right||sp.y<top||sp.y>B;
+      const roomy=sp.x>left+40&&sp.x<right-40&&sp.y>top+30&&sp.y<B-40;  // grow back only with room to spare (no bobbing at the edge)
+      cam.lookK=clamp((cam.lookK===undefined?1:cam.lookK)+(out?-dt*8:roomy?dt*.5:0),0,1);
+      lx*=cam.lookK;ly*=cam.lookK;
+    }
   }
   const k=1-Math.exp(-dt*5);cam.x+=(focus.x+lx-cam.x)*k;cam.y+=(focus.y+ly-cam.y)*k;
 }
@@ -2508,7 +2568,9 @@ function render(){
   drawParts();
   if(player&&player.alive)for(const a of arcs){ctx.strokeStyle=`rgba(255,95,76,${Math.min(1,a.life)})`;ctx.lineWidth=5;ctx.beginPath();ctx.arc(player.x,player.y,player.cls.len*.9+14,a.a-.38,a.a+.38);ctx.stroke();}
   if(player.alive){ctx.setLineDash([14/cam.z,10/cam.z]);ctx.strokeStyle='rgba(160,215,255,.28)';ctx.lineWidth=1.6/cam.z;ctx.beginPath();ctx.arc(player.x,player.y,player.cls.view,0,TAU);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='rgba(160,215,255,.55)';ctx.font=FONT(600,11/cam.z);ctx.textAlign='center';ctx.fillText(`VIEW ${player.cls.view} m`,player.x,player.y-player.cls.view-5/cam.z);}
+    ctx.fillStyle='rgba(160,215,255,.55)';ctx.font=FONT(600,11/cam.z);ctx.textAlign='center';ctx.fillText(`VIEW ${player.cls.view} m`,player.x,player.y-player.cls.view-5/cam.z);
+    ctx.strokeStyle='rgba(242,211,107,.32)';ctx.lineWidth=1.4/cam.z;ctx.setLineDash([4/cam.z,5/cam.z]);ctx.beginPath();ctx.arc(player.x,player.y,PROXY,0,TAU);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(242,211,107,.6)';ctx.font=FONT(600,10/cam.z);ctx.fillText(`PROXIMITY ${PROXY} m`,player.x,player.y+PROXY+12/cam.z);}
   if((mode==='play'||mode==='pause')&&player.alive)drawAim();
   ctx.setTransform(dpr,0,0,dpr,0,0);
   drawMarkers();drawFloats();drawHUD();drawSticks();
@@ -2620,6 +2682,24 @@ function drawHUD(){
   }
   ctx.globalAlpha=1;
   drawMinimap(R,T);
+  // connection readout on a friend's screen: round-trip time to the host and the route in use
+  if(NET.role==='client'&&NET.rtt){
+    const ms=Math.round(NET.rtt),col=ms<120?'#63d28d':ms<250?'#e2b540':'#ff6b55';
+    ctx.save();ctx.textAlign='left';ctx.font=FONT(600,10);ctx.fillStyle=col;
+    ctx.fillText(`PING ${ms} ms · ${NET.via==="relay"?"BACKUP RELAY":"DIRECT"}`,L+52,T+42);ctx.restore();
+  }
+  // start countdown
+  if(startT>0||goT>0){
+    const n=Math.ceil(startT),cy=T+(vh<500?44:64),ph=startT>0?startT-Math.floor(startT):goT/1.1;
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+    if(startT>0){ctx.font=FONT(600,11);ctx.fillStyle='rgba(235,230,210,.85)';ctx.fillText('BATTLE STARTS IN',vw/2,T+4);}
+    const sz=(vh<500?40:56)*(1+.35*Math.max(0,ph-.6)/.4);
+    ctx.font=`${Math.round(sz)}px "Saira Stencil One",${FONT(700,10).replace(/^.*px /,'')}`;
+    ctx.globalAlpha=startT>0?Math.min(1,.35+ph):Math.min(1,goT);
+    ctx.fillStyle='rgba(0,0,0,.55)';const txt=startT>0?String(n):'GO!';ctx.fillText(txt,vw/2+2,cy+2);
+    ctx.fillStyle=startT>0?'#e2b540':'#63d28d';ctx.fillText(txt,vw/2,cy);
+    ctx.restore();
+  }
   // banner
   if(banner){
     const a=Math.min(1,banner.life/.35);ctx.globalAlpha=a;ctx.textAlign='center';
@@ -3124,7 +3204,9 @@ function overlays3D(){
   }
   for(const p of pings){if(p.team!==undefined&&p.team!==player.team)continue;const a=p.life/p.max,pulse=(battleTime*2)%1;ctx.strokeStyle=`rgba(226,181,64,${a})`;ctx.lineWidth=3;if(gPath(p.x,p.y,20+pulse*40))ctx.stroke();const q=proj(p.x,p.y,1);if(q){ctx.fillStyle=`rgba(226,181,64,${a})`;ctx.beginPath();ctx.arc(q.x,q.y,5,0,TAU);ctx.fill();}}
   if(player&&player.alive){ctx.setLineDash([12,9]);ctx.strokeStyle='rgba(160,215,255,.3)';ctx.lineWidth=1.6;if(gPath(player.x,player.y,player.cls.view,0,TAU,2))ctx.stroke();ctx.setLineDash([]);
-    const q=proj(player.x,player.y-player.cls.view,2);if(q){ctx.fillStyle='rgba(160,215,255,.6)';ctx.font=FONT(600,11);ctx.textAlign='center';ctx.fillText(`VIEW ${player.cls.view} m`,q.x,q.y-5);}}
+    const q=proj(player.x,player.y-player.cls.view,2);if(q){ctx.fillStyle='rgba(160,215,255,.6)';ctx.font=FONT(600,11);ctx.textAlign='center';ctx.fillText(`VIEW ${player.cls.view} m`,q.x,q.y-5);}
+    ctx.setLineDash([4,5]);ctx.strokeStyle='rgba(242,211,107,.36)';ctx.lineWidth=1.4;if(gPath(player.x,player.y,PROXY,0,TAU,2))ctx.stroke();ctx.setLineDash([]);
+    const q2=proj(player.x,player.y+PROXY,2);if(q2){ctx.fillStyle='rgba(242,211,107,.65)';ctx.font=FONT(600,10);ctx.textAlign='center';ctx.fillText(`PROXIMITY ${PROXY} m`,q2.x,q2.y+13);}}
   if(player&&player.alive)for(const a of arcs){ctx.strokeStyle=`rgba(255,95,76,${Math.min(1,a.life)})`;ctx.lineWidth=5;if(gPath(player.x,player.y,player.cls.len*.95+16,a.a-.38,a.a+.38,3))ctx.stroke();}
   if((mode==='play'||mode==='pause')&&player.alive)drawAim3D();
 }
@@ -3205,6 +3287,7 @@ function showGL(){const on=mode==='menu'?G3.ok:(is3D());if(R3.gl)R3.gl.style.dis
 // ================= loop =================
 let last=performance.now(),idleMap=null,idleTerrain=null;
 function frame(now){
+  window.__frames=(window.__frames||0)+1;
   const rawDt=Math.max(0,(now-last)/1000),real=Math.min(.033,rawDt);last=now;R3.rawDt=rawDt;
   if(slowT>0){slowT-=real;if(slowT<=0)timeScale=1;}
   lastRealDt=real;
@@ -3524,7 +3607,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,scr:player?(()=>{const p=toScreen(player.x,player.y);return [Math.round(p.x),Math.round(p.y)];})():null,vh:innerHeight,lookK:cam.lookK,startT,timeLeft,rtt:NET.rtt||0,bt:battleTime,ts:timeScale,fr:(window.__frames||0),cam:[Math.round(cam.x),Math.round(cam.y),+cam.z.toFixed(3)],pl:player?[Math.round(player.x),Math.round(player.y)]:null,tgt:R3.target?[Math.round(R3.target.x),Math.round(R3.target.y)]:null,via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
