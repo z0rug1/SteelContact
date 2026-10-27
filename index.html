@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.6</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.7</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -452,7 +452,7 @@ fieldset.slab{display:block}
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
         <li><b>Terrain</b>Trees fall when you drive into them. Shallow fords and marsh slow you. Deep river water is impassable. Ram enemies at speed for damage. Heavier tanks win.</li>
         <li><b>Views</b>Tactical 3D looks down with north up. Chase puts the camera behind your hull. Classic 2D is the top-down map. Switch with <kbd>V</kbd> or the view button under the timer.</li>
-        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Reversing steers like a car backing up: <kbd>S</kbd>+<kbd>A</kbd> swings the rear left. Phone: left thumb drives, right thumb drags the aim and fires on release. Aim stays where you left it; if it was off screen it comes back to normal range. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
+        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Reversing steers like a car backing up: <kbd>S</kbd>+<kbd>A</kbd> swings the rear left. Phone: left thumb drives, right thumb drags the aim and fires on release; drag back to the middle of the stick before lifting to cancel the shot. Aim stays where you left it; if it was off screen it comes back to normal range. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
       </ul>
     </section>
     <section class="tab" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
@@ -1619,17 +1619,18 @@ cv.addEventListener('pointerdown',e=>{
   lastInput='touch';e.preventDefault();
   try{cv.setPointerCapture(e.pointerId);}catch(_){}
   if(e.clientX<vw/2&&stickL.id===null)Object.assign(stickL,{id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY});
-  else if(stickR.id===null){Object.assign(stickR,{id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY,moved:false});beginTouchAim();}
+  else if(stickR.id===null){Object.assign(stickR,{id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY,moved:false,far:0});beginTouchAim();}
 });
 cv.addEventListener('pointermove',e=>{
   if(e.pointerType==='mouse'){mouse.x=e.clientX;mouse.y=e.clientY;mouse.active=true;return;}
   if(e.pointerId===stickL.id){stickL.x=e.clientX;stickL.y=e.clientY;}
-  if(e.pointerId===stickR.id){stickR.x=e.clientX;stickR.y=e.clientY;const dx=stickR.x-stickR.ox,dy=stickR.y-stickR.oy;if(hyp(dx,dy)>6)stickR.moved=true;moveTouchAim(dx,dy);}
+  if(e.pointerId===stickR.id){stickR.x=e.clientX;stickR.y=e.clientY;const dx=stickR.x-stickR.ox,dy=stickR.y-stickR.oy;if(hyp(dx,dy)>6)stickR.moved=true;stickR.far=Math.max(stickR.far||0,hyp(dx,dy));moveTouchAim(dx,dy);}
 });
 cv.addEventListener('pointerup',e=>{
   if(e.pointerType==='mouse'){if(e.button===0)mouse.down=false;if(e.button===2)mouse.right=false;return;}
   if(e.pointerId===stickL.id)stickL.id=null;
-  if(e.pointerId===stickR.id){stickR.id=null;doFire();releaseTouchAim();}
+  // cancel: drag the aim out, bring the stick back to the middle, lift = no shot (a plain tap still fires)
+  if(e.pointerId===stickR.id){stickR.id=null;if(stickCancel())sfx('click',.5);else doFire();releaseTouchAim();}
 });
 cv.addEventListener('pointercancel',e=>{if(e.pointerId===stickL.id)stickL.id=null;if(e.pointerId===stickR.id){stickR.id=null;releaseTouchAim();}if(e.pointerType==='mouse'){mouse.down=false;mouse.right=false;}});
 const toWorld=(sx,sy)=>is3D()?toWorld3D(sx,sy):{x:(sx-vw/2)/cam.z+cam.x,y:(sy-vh/2)/cam.z+cam.y};
@@ -2977,7 +2978,7 @@ function drawHUD(){
   if(hintT>0&&mode==='play'){
     ctx.globalAlpha=Math.min(1,hintT);ctx.textAlign='center';ctx.font=FONT(600,12);ctx.fillStyle='#ebe6d2';
     const touch=lastInput==='touch'||matchMedia('(pointer:coarse)').matches;
-    const txt=touch?'LEFT THUMB DRIVES · RIGHT THUMB AIMS · LIFT TO FIRE':'WASD DRIVE · MOUSE AIM · CLICK FIRE · 1-3 AMMO · 4-6 KITS · SHIFT SCOPE';
+    const txt=touch?'LEFT THUMB DRIVES · RIGHT THUMB AIMS · LIFT TO FIRE · BACK TO CENTRE TO CANCEL':'WASD DRIVE · MOUSE AIM · CLICK FIRE · 1-3 AMMO · 4-6 KITS · SHIFT SCOPE';
     if(ctx.measureText(txt).width>vw-32){const parts=txt.split(' · ');const half=Math.ceil(parts.length/2);ctx.fillText(parts.slice(0,half).join(' · '),vw/2,B-194);ctx.fillText(parts.slice(half).join(' · '),vw/2,B-178);}
     else ctx.fillText(txt,vw/2,B-178);ctx.globalAlpha=1;
   }
@@ -3082,12 +3083,18 @@ function drawPlayerPanel(B){
     ctx.fillStyle='#17160e';ctx.textAlign='center';ctx.fillText(lbl,vw/2,chipY+13);
   }
 }
+const CANCEL_R=26,CANCEL_ARM=44;
+function stickCancel(){return (stickR.far||0)>CANCEL_ARM&&hyp(stickR.x-stickR.ox,stickR.y-stickR.oy)<CANCEL_R;}
 function drawSticks(){
   for(const s of[stickL,stickR]){
     if(s.id===null)continue;
     let dx=s.x-s.ox,dy=s.y-s.oy;const d=hyp(dx,dy),m=56;if(d>m){dx=dx/d*m;dy=dy/d*m;}
     ctx.strokeStyle='rgba(235,230,210,.3)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.ox,s.oy,m,0,TAU);ctx.stroke();
-    ctx.fillStyle=s===stickR?'rgba(226,181,64,.55)':'rgba(235,230,210,.4)';ctx.beginPath();ctx.arc(s.ox+dx,s.oy+dy,22,0,TAU);ctx.fill();
+    const cancel=s===stickR&&stickCancel(),armed=s===stickR&&(s.far||0)>CANCEL_ARM;
+    if(armed){ctx.setLineDash([4,4]);ctx.strokeStyle=cancel?'rgba(255,95,76,.9)':'rgba(255,95,76,.4)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.ox,s.oy,CANCEL_R,0,TAU);ctx.stroke();ctx.setLineDash([]);}
+    ctx.fillStyle=cancel?'rgba(255,95,76,.7)':s===stickR?'rgba(226,181,64,.55)':'rgba(235,230,210,.4)';ctx.beginPath();ctx.arc(s.ox+dx,s.oy+dy,22,0,TAU);ctx.fill();
+    if(cancel){ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(s.ox-8,s.oy-8);ctx.lineTo(s.ox+8,s.oy+8);ctx.moveTo(s.ox+8,s.oy-8);ctx.lineTo(s.ox-8,s.oy+8);ctx.stroke();
+      ctx.font=FONT(700,11);ctx.textAlign='center';ctx.fillStyle='#ff6b55';ctx.fillText('CANCEL',s.ox,s.oy-m-8);}
   }
 }
 
