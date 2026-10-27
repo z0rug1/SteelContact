@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.12</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.13</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -1357,10 +1357,10 @@ function artyImpact(s){
     if(s.rocket){
       // the whole salvo in one panel: damage per target added up across every rocket
       if(!trainHit||trainHit.sv!==s.sv||trainHit.owner!==shooter)trainHit={sv:s.sv,owner:shooter,salvo:true,n:s.svn,landed:0,total:0,per:new Map(),life:7,lines:[],color:'#e2b540'};
-      const H=trainHit;H.landed++;H.life=7;
+      const H=trainHit;H.landed++;H.life=7;if(dmgs.some(([,d])=>d>0))H.hitR=(H.hitR||0)+1;
       for(const[t,d]of dmgs){const v=Math.min(d,t.hp),e=H.per.get(t)||{d:0,n:0,dir:0};e.d+=v;e.n++;if(t===direct)e.dir++;H.per.set(t,e);H.total+=v;}
       const rows=[...H.per.entries()].sort((a,b)=>b[1].d-a[1].d).slice(0,3).map(([t,e])=>`${t.name}: ${fmt(Math.round(e.d))} from ${e.n} ${e.n===1?'rocket':'rockets'}${e.dir?` (${e.dir} direct)`:''}`);
-      H.lines=[`Rocket salvo · ${H.landed}/${H.n} landed · ${fmt(Math.round(H.total))} damage`,...(rows.length?rows:['No target inside any blast yet'])];
+      H.lines=[`Rocket salvo · ${H.hitR||0}/${H.n} rockets did damage · ${fmt(Math.round(H.total))} total`,...(rows.length?rows:['No target inside any blast yet'])];
       H.color=H.total>0?'#63d28d':'#ff6b55';
     }else{
       const L=dmgs.map(([t,d])=>`${t===direct?'Direct hit':'Splash'} · ${t.name}: ${Math.round(Math.min(d,t.hp))}`);
@@ -1491,8 +1491,8 @@ function runFx(ev){
       if(t===P){arcs.push({a:Math.atan2((sh?sh.y:ev.y)-t.y,(sh?sh.x:ev.x)-t.x),life:1.4});shake=Math.max(shake,12);setBanner('Artillery hit',`−${dmg} HP from ${sh?sh.name:'artillery'}`,'#ff8a6e');}}
     if(sh&&sh===P&&ev.rk){
       if(!P.salvoAcc||P.salvoAcc.sv!==ev.sv)P.salvoAcc={sv:ev.sv,landed:0,total:0,stun:new Set(),hit:new Set(),kills:0};
-      const A=P.salvoAcc;A.landed++;A.total+=ev.total;for(const[id]of ev.stun)A.stun.add(id);for(const h of ev.hits){A.hit.add(h[0]);if(h[3])A.kills++;}
-      setBanner(A.kills?`Rocket salvo · ${A.kills} destroyed`:'Rocket salvo',`${A.landed}/${ev.svn} landed · −${fmt(A.total)} HP on ${A.hit.size} ${A.hit.size===1?'tank':'tanks'}${A.stun.size?` · ${A.stun.size} stunned`:''}`,A.total>0?'#63d28d':'#9b9a83');
+      const A=P.salvoAcc;A.landed++;A.total+=ev.total;if(ev.total>0)A.hitR=(A.hitR||0)+1;for(const[id]of ev.stun)A.stun.add(id);for(const h of ev.hits){A.hit.add(h[0]);if(h[3])A.kills++;}
+      setBanner(A.kills?`Rocket salvo · ${A.kills} destroyed`:'Rocket salvo',`${A.hitR||0}/${ev.svn} rockets hit · −${fmt(A.total)} HP on ${A.hit.size} ${A.hit.size===1?'tank':'tanks'}${A.stun.size?` · ${A.stun.size} stunned`:''}`,A.total>0?'#63d28d':'#9b9a83');
     }else if(sh&&sh===P){
       const n=ev.stun.length,st=n?` · ${n} stunned`:'';
       if(ev.total>0)setBanner(ev.best,`−${ev.total} HP total${st}`,'#63d28d');
@@ -2585,7 +2585,8 @@ function presentStep(dt){
   let focus=player;
   if(!player.alive){deadT+=dt;if(!spectate||!spectate.alive)spectate=tanks.find(t=>t.team===player.team&&t.alive)||player;focus=deadT<2.5?player:spectate;}
   const scoping=player.alive&&(scope||mouse.right);
-  const zt=baseZoom()*(player.alive?player.cls.zoom:1)*userZoom*(scoping?.62:1);
+  const touchy=lastInput==='touch'||matchMedia('(pointer:coarse)').matches;
+  const zt=baseZoom()*(player.alive?player.cls.zoom:1)*userZoom*(scoping&&!touchy?.62:1);
   cam.z+=(zt-cam.z)*Math.min(1,dt*4);
   let lx=0,ly=0;
   if(focus===player&&player.alive){
