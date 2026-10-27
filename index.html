@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.10</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.11</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -452,7 +452,7 @@ fieldset.slab{display:block}
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
         <li><b>Terrain</b>Trees fall when you drive into them. Shallow fords and marsh slow you. Deep river water is impassable. Ram enemies at speed for damage. Heavier tanks win.</li>
         <li><b>Views</b>Tactical 3D looks down with north up. Chase puts the camera behind your hull. Classic 2D is the top-down map. Switch with <kbd>V</kbd> or the view button under the timer.</li>
-        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Reversing steers like a car backing up: <kbd>S</kbd>+<kbd>A</kbd> swings the rear left. Phone: left thumb drives, right thumb drags the aim and fires on release; drag back to the middle of the stick before lifting to cancel the shot. Artillery never fires on lift: aim, let go, then press the red FIRE button on the right. Aim stays where you left it; if it was off screen it comes back to normal range. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
+        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Reversing steers like a car backing up: <kbd>S</kbd>+<kbd>A</kbd> swings the rear left. Phone: left thumb drives, right thumb drags the aim and fires on release; drag back to the middle of the stick before lifting to cancel the shot. Artillery never fires on lift: aim, let go, then press either red FIRE button (left or right edge). Aim stays where you left it; if it was off screen it comes back to normal range. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
       </ul>
     </section>
     <section class="tab" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
@@ -2594,7 +2594,9 @@ function presentStep(dt){
       const top=(mmRect?mmRect.y+mmRect.h+48:120),bot=vh-inset.b-200;
       let yUp=(top-vh/2)/cam.z,yDn=(bot-vh/2)/cam.z;if(yDn-yUp<120/cam.z){yUp=-60/cam.z;yDn=60/cam.z;}
       if(is3D()){yUp*=.55;yDn*=.85;}
-      const hx=Math.max(40,(vw/2-90)/cam.z)*(is3D()?.8:1),lim=Math.min(hx,-yUp,yDn)*.7;
+      // artillery on touch: keep the reticle clear of the FIRE buttons on both edges
+      const fireW=player.cls.arty&&(lastInput==='touch'||matchMedia('(pointer:coarse)').matches)?Math.min(40,vh*.09)*2+30:0;
+      const hx=Math.max(40,(vw/2-90-fireW)/cam.z)*(is3D()?.8:1),lim=Math.min(hx,-yUp,yDn)*.7;
       let ox=clamp(dx*.4,-lim,lim),oy=clamp(dy*.4,-lim,lim);
       ox=dx-clamp(dx-ox,-hx,hx);oy=dy-clamp(dy-oy,yUp,yDn);
       lx=ox*c-oy*sn;ly=ox*sn+oy*c;
@@ -2622,6 +2624,20 @@ function presentStep(dt){
       lx*=cam.lookK;ly*=cam.lookK;
     }
   }
+  // Artillery / touch aim: measure where the reticle really is on screen and nudge the camera until it sits in the
+  // clear area (between minimap/top HUD, bottom panel and the FIRE buttons). The aim point is a fixed spot on the
+  // ground, so moving the camera cannot move it: no feedback loop. The nudge relaxes once there is room again.
+  if(!cam.fix)cam.fix={x:0,y:0};
+  if(focus===player&&player.alive&&player.aimX!==undefined&&(player.cls.arty||(lastInput==='touch'&&touchOff))){
+    const sp=toScreen(player.aimX,player.aimY),fw=player.cls.arty&&(lastInput==='touch'||matchMedia('(pointer:coarse)').matches)?Math.min(40,vh*.09)*2+30:0;
+    const L=inset.l+60+fw,Rr=vw-inset.r-60-fw,T=(mmRect?mmRect.y+mmRect.h+30:110),B=vh-inset.b-190;
+    const ex=sp.x<L?sp.x-L:sp.x>Rr?sp.x-Rr:0,ey=sp.y<T?sp.y-T:sp.y>B?sp.y-B:0;
+    const rot=is3D()?camYaw+Math.PI/2:0,c=Math.cos(rot),sn=Math.sin(rot),g=Math.min(1,dt*4)/cam.z*(is3D()?1.4:1);
+    if(ex||ey){cam.fix.x+=(ex*c-ey*sn)*g;cam.fix.y+=(ex*sn+ey*c)*g;}
+    else{cam.fix.x*=Math.exp(-dt*.8);cam.fix.y*=Math.exp(-dt*.8);}
+    const m=hyp(cam.fix.x,cam.fix.y),mx=900;if(m>mx){cam.fix.x*=mx/m;cam.fix.y*=mx/m;}
+  }else{cam.fix.x*=Math.exp(-dt*3);cam.fix.y*=Math.exp(-dt*3);}
+  lx+=cam.fix.x;ly+=cam.fix.y;
   const k=1-Math.exp(-dt*5);cam.x+=(focus.x+lx-cam.x)*k;cam.y+=(focus.y+ly-cam.y)*k;
 }
 function endBattle(winner,reason){
@@ -2850,11 +2866,21 @@ function drawAim(){
     const ax=player.aimX,ay=player.aimY,d=hyp(ax-player.x,ay-player.y),r=player.cls.rocket?player.cls.rocket.scatter*(1+player.bloom*.3):artyDisp(player,d);
     const aligned=Math.abs(angDiff(player.ta,Math.atan2(ay-player.y,ax-player.x)))<.05;
     ctx.setLineDash([6/cam.z,8/cam.z]);ctx.strokeStyle='rgba(235,230,210,.18)';ctx.lineWidth=1.2/cam.z;ctx.beginPath();ctx.moveTo(player.x,player.y);ctx.lineTo(ax,ay);ctx.stroke();ctx.setLineDash([]);
-    ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.55)';ctx.lineWidth=2/cam.z;ctx.beginPath();ctx.arc(ax,ay,r,0,TAU);ctx.stroke();
+    if(!player.cls.rocket){ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.55)';ctx.lineWidth=2/cam.z;ctx.beginPath();ctx.arc(ax,ay,r,0,TAU);ctx.stroke();}
     {const hit=artyPathHit(player.x,player.y,ax,ay,artyPeak(d));
      if(hit){const k=9/cam.z;ctx.strokeStyle='#ff5f4c';ctx.lineWidth=3/cam.z;ctx.beginPath();ctx.moveTo(hit.x-k,hit.y-k);ctx.lineTo(hit.x+k,hit.y+k);ctx.moveTo(hit.x+k,hit.y-k);ctx.lineTo(hit.x-k,hit.y+k);ctx.stroke();
        ctx.font=FONT(700,11/cam.z);ctx.fillStyle='#ff5f4c';ctx.textAlign='center';ctx.fillText('BLOCKED',hit.x,hit.y-k-4/cam.z);}}
-    {const bg=blastGeom(player.x,player.y,ax,ay,player.cls.splash*(player.ammo==='HE'?1:.55));
+    if(player.cls.rocket){
+      // Rocket reticle: orange salvo area (where rockets land), dashed outer ring (how far their blasts reach),
+      // and one pip per rocket in the spread pattern
+      const n=player.cls.rocket.n,reach=r+player.cls.splash,ready=player.reloadT<=0,z=cam.z;
+      ctx.fillStyle='rgba(255,140,60,.10)';ctx.beginPath();ctx.arc(ax,ay,r,0,TAU);ctx.fill();
+      ctx.strokeStyle=ready?'rgba(255,150,70,.95)':'rgba(255,150,70,.45)';ctx.lineWidth=2.2/z;ctx.beginPath();ctx.arc(ax,ay,r,0,TAU);ctx.stroke();
+      ctx.strokeStyle='rgba(255,150,70,.35)';ctx.setLineDash([10/z,8/z]);ctx.lineWidth=1.4/z;ctx.beginPath();ctx.arc(ax,ay,reach,0,TAU);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle=ready?'rgba(255,170,90,.9)':'rgba(255,170,90,.35)';
+      for(let i=0;i<n;i++){const rr=r*Math.sqrt((i+.5)/n)*.92,a=i*2.39996;ctx.beginPath();ctx.arc(ax+Math.cos(a)*rr,ay+Math.sin(a)*rr,3.2/z+1,0,TAU);ctx.fill();}
+      ctx.font=FONT(700,10/z);ctx.textAlign='center';ctx.fillStyle='rgba(255,170,90,.9)';ctx.fillText(`${n} ROCKETS`,ax,ay+reach+12/z);
+    }else{const bg=blastGeom(player.x,player.y,ax,ay,player.cls.splash*(player.ammo==='HE'?1:.55));
      ctx.fillStyle='rgba(226,181,64,.07)';ctx.strokeStyle='rgba(226,181,64,.38)';ctx.beginPath();blastPoly(bg,ax,ay).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fill();ctx.stroke();
      ctx.strokeStyle='rgba(242,211,107,.16)';ctx.setLineDash([4/cam.z,6/cam.z]);ctx.beginPath();blastPoly(bg,ax,ay,STUN_REACH).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.stroke();ctx.setLineDash([]);}
     const rp=1-player.reloadT/player.reloadMax;ctx.strokeStyle=player.reloadT<=0?'#e2b540':'rgba(235,230,210,.55)';ctx.lineWidth=3/cam.z;ctx.beginPath();ctx.arc(ax,ay,r+7/cam.z,-Math.PI/2,-Math.PI/2+TAU*rp);ctx.stroke();
@@ -3079,12 +3105,14 @@ function drawPlayerPanel(B){
   };
   // artillery on touch screens: a dedicated FIRE button on the right edge (aim with the stick, lift, then fire)
   if(player.cls.arty&&(lastInput==='touch'||matchMedia('(pointer:coarse)').matches)){
-    const R=Math.min(40,vh*.09),fx=vw-inset.r-R-18,fy=Math.min(vh*.5,by-R-24),rl=player.reloadT>0,rp=player.reloadMax?1-player.reloadT/player.reloadMax:1;
-    ctx.fillStyle=rl?'rgba(16,18,12,.8)':'rgba(255,95,76,.85)';ctx.beginPath();ctx.arc(fx,fy,R,0,TAU);ctx.fill();
-    ctx.strokeStyle=rl?'rgba(235,230,210,.25)':'#ffd2c8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx,fy,R,0,TAU);ctx.stroke();
-    if(rl){ctx.strokeStyle='#e2b540';ctx.lineWidth=4;ctx.beginPath();ctx.arc(fx,fy,R-3,-Math.PI/2,-Math.PI/2+TAU*rp);ctx.stroke();}
-    ctx.textAlign='center';ctx.fillStyle=rl?'rgba(235,230,210,.6)':'#fff';ctx.font=FONT(700,13);ctx.fillText(rl?`${player.reloadT.toFixed(1)}s`:'FIRE',fx,fy+5);
-    uiButtons.push({x:fx-R,y:fy-R,w:R*2,h:R*2,act:()=>doFire()});
+    const R=Math.min(40,vh*.09),fy=Math.min(vh*.5,by-R-24),rl=player.reloadT>0,rp=player.reloadMax?1-player.reloadT/player.reloadMax:1;
+    for(const fx of[inset.l+R+18,vw-inset.r-R-18]){
+      ctx.fillStyle=rl?'rgba(16,18,12,.8)':'rgba(255,95,76,.85)';ctx.beginPath();ctx.arc(fx,fy,R,0,TAU);ctx.fill();
+      ctx.strokeStyle=rl?'rgba(235,230,210,.25)':'#ffd2c8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx,fy,R,0,TAU);ctx.stroke();
+      if(rl){ctx.strokeStyle='#e2b540';ctx.lineWidth=4;ctx.beginPath();ctx.arc(fx,fy,R-3,-Math.PI/2,-Math.PI/2+TAU*rp);ctx.stroke();}
+      ctx.textAlign='center';ctx.fillStyle=rl?'rgba(235,230,210,.6)':'#fff';ctx.font=FONT(700,13);ctx.fillText(rl?`${player.reloadT.toFixed(1)}s`:'FIRE',fx,fy+5);
+      uiButtons.push({x:fx-R,y:fy-R,w:R*2,h:R*2,act:()=>doFire()});
+    }
   }
   keysA.forEach((k,i)=>{const n=player.ammoCount[k];btn(k,`${n}`,player.ammo===k?'sel':n>0?'ready':'off',()=>doAmmo(k));bx+=bw+gapB;});
   bx+=groupGap-gapB;
@@ -3113,7 +3141,7 @@ function drawSticks(){
     if(s.id===null)continue;
     let dx=s.x-s.ox,dy=s.y-s.oy;const d=hyp(dx,dy),m=56;if(d>m){dx=dx/d*m;dy=dy/d*m;}
     ctx.strokeStyle='rgba(235,230,210,.3)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.ox,s.oy,m,0,TAU);ctx.stroke();
-    const cancel=s===stickR&&stickCancel(),armed=s===stickR&&(s.far||0)>CANCEL_ARM;
+    const cancel=s===stickR&&stickCancel(),armed=s===stickR&&!(player&&player.cls.arty)&&(s.far||0)>CANCEL_ARM;
     if(armed){ctx.setLineDash([4,4]);ctx.strokeStyle=cancel?'rgba(255,95,76,.9)':'rgba(255,95,76,.4)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.ox,s.oy,CANCEL_R,0,TAU);ctx.stroke();ctx.setLineDash([]);}
     ctx.fillStyle=cancel?'rgba(255,95,76,.7)':s===stickR?'rgba(226,181,64,.55)':'rgba(235,230,210,.4)';ctx.beginPath();ctx.arc(s.ox+dx,s.oy+dy,22,0,TAU);ctx.fill();
     if(cancel){ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(s.ox-8,s.oy-8);ctx.lineTo(s.ox+8,s.oy+8);ctx.moveTo(s.ox+8,s.oy-8);ctx.lineTo(s.ox-8,s.oy+8);ctx.stroke();
@@ -3566,10 +3594,17 @@ function drawAim3D(){
     const ax=P.aimX,ay=P.aimY,d=hyp(ax-P.x,ay-P.y),r=P.cls.rocket?P.cls.rocket.scatter*(1+P.bloom*.3):artyDisp(P,d);
     const aligned=Math.abs(angDiff(P.ta,Math.atan2(ay-P.y,ax-P.x)))<.05;
     ctx.strokeStyle='rgba(226,181,64,.16)';ctx.setLineDash([12,10]);ctx.lineWidth=1.2;if(gPath(P.x,P.y,P.cls.maxRange))ctx.stroke();ctx.setLineDash([]);
-    ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.6)';ctx.lineWidth=2;if(gPath(ax,ay,r))ctx.stroke();
+    if(!P.cls.rocket){ctx.strokeStyle=aligned?'#e2b540':'rgba(235,230,210,.6)';ctx.lineWidth=2;if(gPath(ax,ay,r))ctx.stroke();}
     {const hit=artyPathHit(P.x,P.y,ax,ay,artyPeak(d));
      if(hit){const q=proj(hit.x,hit.y,(hit.o.h3||10)*.6);if(q){ctx.strokeStyle='#ff5f4c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(q.x-9,q.y-9);ctx.lineTo(q.x+9,q.y+9);ctx.moveTo(q.x+9,q.y-9);ctx.lineTo(q.x-9,q.y+9);ctx.stroke();ctx.font=FONT(700,11);ctx.fillStyle='#ff5f4c';ctx.textAlign='center';ctx.fillText('BLOCKED',q.x,q.y-14);}}}
-    {const bg=blastGeom(P.x,P.y,ax,ay,P.cls.splash*(P.ammo==='HE'?1:.55));
+    if(P.cls.rocket){
+      const n=P.cls.rocket.n,reach=r+P.cls.splash,ready=P.reloadT<=0;
+      if(gPath(ax,ay,r,0,TAU,1)){ctx.fillStyle='rgba(255,140,60,.12)';ctx.fill();ctx.strokeStyle=ready?'rgba(255,150,70,.95)':'rgba(255,150,70,.45)';ctx.lineWidth=2.2;ctx.stroke();}
+      ctx.setLineDash([10,8]);ctx.strokeStyle='rgba(255,150,70,.38)';ctx.lineWidth=1.4;if(gPath(ax,ay,reach,0,TAU,1))ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle=ready?'rgba(255,170,90,.9)':'rgba(255,170,90,.35)';
+      for(let i=0;i<n;i++){const rr=r*Math.sqrt((i+.5)/n)*.92,a=i*2.39996,q=proj(ax+Math.cos(a)*rr,ay+Math.sin(a)*rr,1);if(q){ctx.beginPath();ctx.arc(q.x,q.y,3.2,0,TAU);ctx.fill();}}
+      const ql=proj(ax,ay+reach,1);if(ql){ctx.font=FONT(700,10);ctx.textAlign='center';ctx.fillStyle='rgba(255,170,90,.9)';ctx.fillText(`${n} ROCKETS`,ql.x,ql.y+14);}
+    }else{const bg=blastGeom(P.x,P.y,ax,ay,P.cls.splash*(P.ammo==='HE'?1:.55));
      const poly=(k)=>{let st=false,any=false;ctx.beginPath();for(const[x,y]of blastPoly(bg,ax,ay,k)){const q=proj(x,y,1);if(!q){st=false;continue;}if(!st){ctx.moveTo(q.x,q.y);st=true;}else ctx.lineTo(q.x,q.y);any=true;}if(any)ctx.closePath();return any;};
      ctx.lineWidth=1.5;if(poly(1)){ctx.fillStyle='rgba(226,181,64,.08)';ctx.fill();ctx.strokeStyle='rgba(226,181,64,.42)';ctx.stroke();}
      ctx.setLineDash([5,7]);ctx.strokeStyle='rgba(242,211,107,.2)';if(poly(STUN_REACH))ctx.stroke();ctx.setLineDash([]);}
@@ -4003,7 +4038,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,scr:player?(()=>{const p=toScreen(player.x,player.y);return [Math.round(p.x),Math.round(p.y)];})():null,vh:innerHeight,lookK:cam.lookK,startT,timeLeft,th:trainHit?trainHit.lines:null,tscr:i=>{const t=tanks[i];const q=toScreen(t.x,t.y);return [Math.round(q.x),Math.round(q.y)];},rtt:NET.rtt||0,bt:battleTime,ts:timeScale,fr:(window.__frames||0),cam:[Math.round(cam.x),Math.round(cam.y),+cam.z.toFixed(3)],pl:player?[Math.round(player.x),Math.round(player.y)]:null,tgt:R3.target?[Math.round(R3.target.x),Math.round(R3.target.y)]:null,incomingTest:(key='how3')=>{const e=tanks.find(t=>t.team!==player.team&&t.alive);e.cls=CLASSES[key];e.s=derive(e.cls,{});e.ammo='HE';e.ammoCount={HE:9};e.x=player.x+900;e.y=player.y;e.hidden=false;e.aimX=player.x;e.aimY=player.y;e.reloadT=0;startT=0;fire(e);return shells.filter(s=>s.arty&&s.team!==player.team).length;},boom:(dx=160,rk=0)=>{const p=player;runFx({k:'arty',rk,x:p.x+dx,y:p.y,R:80,dir:0,e:.6,sid:-1,stun:[],hits:[],best:'',total:0});},via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,scr:player?(()=>{const p=toScreen(player.x,player.y);return [Math.round(p.x),Math.round(p.y)];})():null,vh:innerHeight,lookK:cam.lookK,fix:cam.fix?[Math.round(cam.fix.x),Math.round(cam.fix.y)]:null,ascr:player&&player.aimX!==undefined?(()=>{const q=toScreen(player.aimX,player.aimY);return [Math.round(q.x),Math.round(q.y)];})():null,startT,timeLeft,th:trainHit?trainHit.lines:null,tscr:i=>{const t=tanks[i];const q=toScreen(t.x,t.y);return [Math.round(q.x),Math.round(q.y)];},rtt:NET.rtt||0,bt:battleTime,ts:timeScale,fr:(window.__frames||0),cam:[Math.round(cam.x),Math.round(cam.y),+cam.z.toFixed(3)],pl:player?[Math.round(player.x),Math.round(player.y)]:null,tgt:R3.target?[Math.round(R3.target.x),Math.round(R3.target.y)]:null,incomingTest:(key='how3')=>{const e=tanks.find(t=>t.team!==player.team&&t.alive);e.cls=CLASSES[key];e.s=derive(e.cls,{});e.ammo='HE';e.ammoCount={HE:9};e.x=player.x+900;e.y=player.y;e.hidden=false;e.aimX=player.x;e.aimY=player.y;e.reloadT=0;startT=0;fire(e);return shells.filter(s=>s.arty&&s.team!==player.team).length;},boom:(dx=160,rk=0)=>{const p=player;runFx({k:'arty',rk,x:p.x+dx,y:p.y,R:80,dir:0,e:.6,sid:-1,stun:[],hits:[],best:'',total:0});},via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
