@@ -391,7 +391,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.3</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.4</div></div>
     </div>
     <div class="badge" id="badge"></div>
   </header>
@@ -442,6 +442,7 @@ fieldset.slab{display:block}
         <li><b>Rocket artillery</b>The Tempest and Cyclone (artillery line, tiers II and III) fire a salvo of 12 or 16 rockets that scatter over a wide circle around your aim point, then reload for 20 s (Tempest) or 25 s (Cyclone). Each rocket has its own blast and stuns like a full shell. The Howler also branches into heavier howitzers (Thunder II, Colossus III) for players who prefer one big accurate shell. A salvo usually lands several hits on anything inside the circle and softens every tank near it.</li>
         <li><b>Tech tree</b>Every line has three tiers. Battles earn XP for the vehicle you drove; enough XP researches the next vehicle in that line (2,500 XP for tier II, 6,000 for tier III), and credits buy it (12,000 and 30,000). Bots in your battles come from your tier, sometimes one above or below.</li>
         <li><b>Training ground</b>Pick Training as the battle mode, or Test drive any vehicle from the Tech tree. Stationary targets of every class never move or shoot but still spot you. Each hit you land is explained on screen: plate, angle, effective armor, your pen at that range and the damage. Ammo is unlimited, destroyed targets come back after 4 s, and nothing is earned.</li>
+        <li><b>Incoming fire</b>The moment an enemy SPG fires, the landing zone of its shell shows on the ground in red, and the inner area fills up as impact gets closer. Drive out of it. A whistle plays when it is aimed within 300 m of you.</li>
         <li><b>Stun</b>Artillery shells stun every enemy inside a zone of the same shape, 1.75× larger, for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
         <li><b>Consumables</b>Repair kit fixes tracks, gun and engine and shakes off stun. Extinguisher puts out fire and fireproofs you for 12 s. Smoke drops a 14 s cloud that blocks sight lines.</li>
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
@@ -668,6 +669,7 @@ function sfx(kind,vol=1){
     if(kind==='lamp'){tone(880,880,.12,.07*vol,'square');setTimeout(()=>{try{tone(1320,1320,.16,.06*vol,'square');}catch(e){}},130);return;}
     if(kind==='cap'){tone(520,520,.08,.05*vol,'square');return;}
     if(kind==='click'){tone(1800,1200,.05,.05*vol,'square');return;}
+    if(kind==='incoming'){tone(1900,700,.55,.05*vol,'sine');return;}
     if(kind==='rocket'){tone(260,90,.22,.05*vol,'sawtooth');return;}
     if(kind==='tick'){tone(660,660,.09,.07*vol,'square');return;}
     if(kind==='go'){tone(880,880,.1,.08*vol,'square');setTimeout(()=>{try{tone(1320,1320,.28,.08*vol,'square');}catch(e){}},110);return;}
@@ -2022,7 +2024,7 @@ function netSendInput(inp){
 }
 function netAct(m){if(NET.conn&&NET.conn.open)NET.conn.send({t:'act',...m});}
 function packTank(t){return [r1(t.x),r1(t.y),r3(t.a),r3(t.ta),Math.ceil(t.hp),(t.alive?1:0)|(t.hidden?2:0)|(t.capturing?4:0)|(t.mods.tracks>0?8:0)|(t.mods.fire>0?32:0)|(t.inBush?64:0),r1(t.marker),r1(t.stun),r1(t.stunMax),Math.round(t.spd),Math.round(t.dmgDealt),t.kills];}
-function packShell(s){return s.arty?[1,r1(s.sx),r1(s.sy),r1(s.tx),r1(s.ty),r3(s.t),r3(s.T),r1(s.peak),s.team,s.masked?1:0,s.rocket?1:0]:[0,r1(s.x),r1(s.y),r1(s.vx),r1(s.vy),s.ammo.key,s.team,s.masked?1:0,Math.round(s.dist),r1(s.h0||14),r1(s.spd)];}
+function packShell(s){return s.arty?[1,r1(s.sx),r1(s.sy),r1(s.tx),r1(s.ty),r3(s.t),r3(s.T),r1(s.peak),s.team,s.masked?1:0,s.rocket?1:0,r1(s.splash||80),s.stopP?r3(s.stopP):0]:[0,r1(s.x),r1(s.y),r1(s.vx),r1(s.vy),s.ammo.key,s.team,s.masked?1:0,Math.round(s.dist),r1(s.h0||14),r1(s.spd)];}
 function packMe(t){
   const st=t.st;
   // sq/sa: the last input applied from this player and how long ago (s), so their screen can compare like with like
@@ -2054,7 +2056,7 @@ function applySnap(m){
     if(t!==player){t.mods.tracks=fl&8?1:0;t.mods.fire=fl&32?1:0;}
     t.marker=mk;t.stun=stn;t.stunMax=stm||1;t.spd=spd;t.dmgDealt=dd;t.kills=kl;
   });
-  shells=m.sh.map(a=>a[0]===1?{arty:true,sx:a[1],sy:a[2],tx:a[3],ty:a[4],t:a[5],T:a[6],peak:a[7],team:a[8],masked:!!a[9],rocket:!!a[10],x:a[1],y:a[2],h:0}
+  shells=m.sh.map(a=>a[0]===1?{arty:true,sx:a[1],sy:a[2],tx:a[3],ty:a[4],t:a[5],T:a[6],peak:a[7],team:a[8],masked:!!a[9],rocket:!!a[10],splash:a[11]||80,stopP:a[12]||0,x:a[1],y:a[2],h:0}
     :{x:a[1],y:a[2],vx:a[3],vy:a[4],ammo:AMMO[a[5]]||AMMO.AP,team:a[6],masked:!!a[7],dist:a[8],h0:a[9],spd:a[10]||1});
   bases.forEach((b,i)=>{const p=m.b[i];if(!p)return;for(const tm of[0,1]){if(Math.floor(b.pts[tm]/10)!==Math.floor(p[tm]/10)&&p[tm]>b.pts[tm])sfx('cap',.8);}b.pts=p;});
   rings=m.rg.map(r=>({team:r[0],x:r[1],y:r[2],r:r[3],life:r[4],max:r[5]}));
@@ -2656,6 +2658,7 @@ function drawTank(t){
 }
 function drawParts(){
   for(const p of parts)if(p.c==='scorch'){const a=p.life/p.max;const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size);g.addColorStop(0,`rgba(255,140,50,${.55*a})`);g.addColorStop(.6,`rgba(180,60,20,${.25*a})`);g.addColorStop(1,'rgba(120,40,10,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,TAU);ctx.fill();}
+  drawIncoming2D();
   for(const w of waves){const a=w.life/w.max;ctx.strokeStyle=`rgba(235,225,200,${.55*a})`;ctx.lineWidth=(3+5*a)/Math.max(.4,cam.z);ctx.beginPath();ctx.arc(w.x,w.y,w.r,0,TAU);ctx.stroke();
     ctx.strokeStyle=`rgba(150,135,100,${.35*a})`;ctx.lineWidth=10*a/Math.max(.4,cam.z);ctx.beginPath();ctx.arc(w.x,w.y,w.r*.88,0,TAU);ctx.stroke();}
   for(const p of parts){if(p.c==='smoke'||p.c==='column'){const a=p.life/p.max,col=p.c==='column'?'70,62,48':'40,40,36';ctx.fillStyle=`rgba(${col},${(p.c==='column'?.68*Math.sqrt(a):.42*a)})`;ctx.beginPath();ctx.arc(p.x,p.y-(p.h||0)*.35,p.size*(1.8-a),0,TAU);ctx.fill();}}
@@ -2777,6 +2780,39 @@ function render(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   drawMarkers();drawFloats();drawHUD();drawSticks();
   postFx();
+}
+// Incoming artillery: as soon as an enemy shell is in the air, its landing zone shows on the ground (the real blast
+// shape, ending where the shell will stop if it hits cover). The inner disc fills up as impact approaches.
+// A whistle plays once for shells landing within 300 m of you.
+const warned=new Set();
+function incoming(){
+  const out=[];if(!player)return out;
+  for(const s of shells){
+    if(!s.arty||s.team===player.team)continue;
+    const sp=s.stopP||1,ix=s.sx+(s.tx-s.sx)*sp,iy=s.sy+(s.ty-s.sy)*sp,R=s.splash||80;
+    const g=blastGeom(s.sx,s.sy,ix,iy,R),u=clamp(s.t/(s.T*sp),0,1);
+    out.push({x:ix,y:iy,g,u,rk:!!s.rocket});
+    const key=`${Math.round(s.sx)},${Math.round(s.sy)},${Math.round(s.tx)},${Math.round(s.ty)}`;
+    if(!warned.has(key)){warned.add(key);if(warned.size>400)warned.clear();
+      if(player.alive&&hyp(ix-player.x,iy-player.y)<300)sfx('incoming',s.rocket?.5:1);}
+  }
+  return out;
+}
+function drawIncoming2D(){
+  for(const w of incoming()){
+    const pts=blastPoly(w.g,w.x,w.y,1,40),a=w.rk?.55:1,pulse=.6+.4*Math.sin(battleTime*14);
+    ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();
+    ctx.fillStyle=`rgba(255,70,50,${.1*a})`;ctx.fill();ctx.strokeStyle=`rgba(255,90,60,${.8*a*pulse})`;ctx.lineWidth=2/cam.z;ctx.setLineDash([7/cam.z,5/cam.z]);ctx.stroke();ctx.setLineDash([]);
+    const inner=blastPoly(w.g,w.x,w.y,w.u,40);ctx.beginPath();inner.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=`rgba(255,80,50,${.22*a})`;ctx.fill();
+  }
+}
+function drawIncoming3D(){
+  for(const w of incoming()){
+    const a=w.rk?.55:1,pulse=.6+.4*Math.sin(battleTime*14);
+    const path=k=>{let st=false,any=false;ctx.beginPath();for(const[x,y]of blastPoly(w.g,w.x,w.y,k,40)){const q=proj(x,y,1.5);if(!q){st=false;continue;}if(!st){ctx.moveTo(q.x,q.y);st=true;}else ctx.lineTo(q.x,q.y);any=true;}if(any)ctx.closePath();return any;};
+    if(path(1)){ctx.fillStyle=`rgba(255,70,50,${.12*a})`;ctx.fill();ctx.strokeStyle=`rgba(255,90,60,${.85*a*pulse})`;ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.stroke();ctx.setLineDash([]);}
+    if(w.u>.02&&path(w.u)){ctx.fillStyle=`rgba(255,80,50,${.25*a})`;ctx.fill();}
+  }
 }
 function drawAim(){
   if(player.cls.arty&&player.aimX!==undefined){
@@ -2925,7 +2961,7 @@ function drawHUD(){
   if(hintT>0&&mode==='play'){
     ctx.globalAlpha=Math.min(1,hintT);ctx.textAlign='center';ctx.font=FONT(600,12);ctx.fillStyle='#ebe6d2';
     const touch=lastInput==='touch'||matchMedia('(pointer:coarse)').matches;
-    const txt=touch?'LEFT THUMB DRIVES · RIGHT THUMB NUDGES AIM · LIFT TO FIRE':'WASD DRIVE · MOUSE AIM · CLICK FIRE · 1-3 AMMO · 4-6 KITS · SHIFT SCOPE';
+    const txt=touch?'LEFT THUMB DRIVES · RIGHT THUMB AIMS · LIFT TO FIRE':'WASD DRIVE · MOUSE AIM · CLICK FIRE · 1-3 AMMO · 4-6 KITS · SHIFT SCOPE';
     if(ctx.measureText(txt).width>vw-32){const parts=txt.split(' · ');const half=Math.ceil(parts.length/2);ctx.fillText(parts.slice(0,half).join(' · '),vw/2,B-194);ctx.fillText(parts.slice(half).join(' · '),vw/2,B-178);}
     else ctx.fillText(txt,vw/2,B-178);ctx.globalAlpha=1;
   }
@@ -3452,6 +3488,7 @@ function gPath(x,y,r,a0=0,a1=TAU,h=1){
   return any;
 }
 function overlays3D(){
+  drawIncoming3D();
   // artillery shockwave rings on the ground
   for(const w of waves){const a=w.life/w.max;ctx.strokeStyle=`rgba(235,225,200,${.6*a})`;ctx.lineWidth=2+5*a;if(gPath(w.x,w.y,w.r,0,TAU,1.5))ctx.stroke();ctx.strokeStyle=`rgba(150,135,100,${.35*a})`;ctx.lineWidth=9*a;if(gPath(w.x,w.y,w.r*.88,0,TAU,1.5))ctx.stroke();}
   // bases' capture progress
@@ -3876,6 +3913,7 @@ function showEnd(){
   if(stats.kills>=3)meds.push([stats.kills>=5?'Warlord':'Ace Gunner',`${stats.kills} kills`]);
   if(stats.blocked>=1200)meds.push(['Steel Wall',`${fmt(stats.blocked)} blocked`]);
   if(stats.assist>=600)meds.push(['Pathfinder',`${fmt(stats.assist)} spotting assist`]);
+  if(player.cls.arty&&stats.hits+stats.splashHits>=8)meds.push(['Bombardier',`${stats.hits+stats.splashHits} tanks hit by your shells`]);
   if(stats.stunAssist>=500)meds.push(['Shell Shock',`${fmt(stats.stunAssist)} stun assist`]);
   if(stats.shots>=6&&stats.pens/stats.shots>=.8)meds.push(['Sharpshooter',`${Math.round(stats.pens/stats.shots*100)}% of shots pierced`]);
   if(stats.capped>=40)meds.push(['Invader',`${Math.round(stats.capped)} capture points`]);
@@ -3917,7 +3955,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,scr:player?(()=>{const p=toScreen(player.x,player.y);return [Math.round(p.x),Math.round(p.y)];})():null,vh:innerHeight,lookK:cam.lookK,startT,timeLeft,th:trainHit?trainHit.lines:null,tscr:i=>{const t=tanks[i];const q=toScreen(t.x,t.y);return [Math.round(q.x),Math.round(q.y)];},rtt:NET.rtt||0,bt:battleTime,ts:timeScale,fr:(window.__frames||0),cam:[Math.round(cam.x),Math.round(cam.y),+cam.z.toFixed(3)],pl:player?[Math.round(player.x),Math.round(player.y)]:null,tgt:R3.target?[Math.round(R3.target.x),Math.round(R3.target.y)]:null,boom:(dx=160,rk=0)=>{const p=player;runFx({k:'arty',rk,x:p.x+dx,y:p.y,R:80,dir:0,e:.6,sid:-1,stun:[],hits:[],best:'',total:0});},via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,scr:player?(()=>{const p=toScreen(player.x,player.y);return [Math.round(p.x),Math.round(p.y)];})():null,vh:innerHeight,lookK:cam.lookK,startT,timeLeft,th:trainHit?trainHit.lines:null,tscr:i=>{const t=tanks[i];const q=toScreen(t.x,t.y);return [Math.round(q.x),Math.round(q.y)];},rtt:NET.rtt||0,bt:battleTime,ts:timeScale,fr:(window.__frames||0),cam:[Math.round(cam.x),Math.round(cam.y),+cam.z.toFixed(3)],pl:player?[Math.round(player.x),Math.round(player.y)]:null,tgt:R3.target?[Math.round(R3.target.x),Math.round(R3.target.y)]:null,incomingTest:(key='how3')=>{const e=tanks.find(t=>t.team!==player.team&&t.alive);e.cls=CLASSES[key];e.s=derive(e.cls,{});e.ammo='HE';e.ammoCount={HE:9};e.x=player.x+900;e.y=player.y;e.hidden=false;e.aimX=player.x;e.aimY=player.y;e.reloadT=0;startT=0;fire(e);return shells.filter(s=>s.arty&&s.team!==player.team).length;},boom:(dx=160,rk=0)=>{const p=player;runFx({k:'arty',rk,x:p.x+dx,y:p.y,R:80,dir:0,e:.6,sid:-1,stun:[],hits:[],best:'',total:0});},via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
