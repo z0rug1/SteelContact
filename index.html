@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.14</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.15</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -1658,7 +1658,7 @@ function cycleView(){const i=VIEWS.indexOf(view);let n=VIEWS[(i+1)%VIEWS.length]
 function pingAt(x,y,by){
   by=by||player;if(NET.role==='client'){netAct({a:'ping',x,y});return;}
   let n=0;
-  for(const t of tanks){if(!t.ai||!t.alive||t.team!==by.team||t.cls.arty)continue;if(hyp(t.x-x,t.y-y)>1400&&n>=1)continue;t.ai.order={x,y,life:20};n++;}
+  for(const t of tanks){if(!t.ai||!t.alive||t.team!==by.team||t.cls.arty)continue;if(hyp(t.x-x,t.y-y)>1400&&n>=1)continue;{const a=n*2.39996,r=n?40+30*Math.sqrt(n):0;t.ai.order={x:clamp(x+Math.cos(a)*r,60,W-60),y:clamp(y+Math.sin(a)*r,60,H-60),life:20};}n++;}
   fx({k:'ping',x,y,team:by.team,by:by.id,n});
 }
 
@@ -2372,7 +2372,7 @@ function aiUpdate(t,dt){
     goal={x:ownBase.x,y:ownBase.y};
   }else if(tg&&!tg.blind){
     const R=c.range;
-    if(c.key==='sniper'){
+    if(c.line==='sniper'){
       if(ai.bushT<=0){ai.bush=sniperBush(t,tg);ai.bushT=6;}ai.bushT-=dt;
       const b=ai.bush;
       if(b&&hyp(b.x-t.x,b.y-t.y)>b.r*.45)goal={x:b.x,y:b.y};
@@ -2382,20 +2382,21 @@ function aiUpdate(t,dt){
     }else if(!los||dist>R+90)goal={x:tg.x,y:tg.y};
     else if(dist<R-130){hull=toT;thr=-.65;}
     else{
-      if(c.key==='heavy'){hull=toT+ai.side*.45;thr=0;}
-      else if(c.key==='light'){hull=toT+ai.side*1.25;thr=.9;}
+      if(c.line==='heavy'){hull=toT+ai.side*.45;thr=0;}
+      else if(c.line==='light'){hull=toT+ai.side*1.25;thr=.9;}
       else{hull=toT+ai.side*.3;thr=Math.sin(ai.peek*.8)*.5;}
     }
   }else if(ai.order){goal={x:ai.order.x,y:ai.order.y};}
   else if(tg&&tg.blind){goal={x:tg.x,y:tg.y};}
   else{
     const wantCap=capBase&&(cfg.mode==='encounter'?c.line!=='sniper':(enemiesAlive<=2||timeLeft<110||(ai.role==='capper'&&battleTime>45)));
-    if(wantCap&&!(c.key==='sniper')){goal={x:capBase.x+rand(-30,30)*0,y:capBase.y};}
+    // each capper parks on its own spot inside the circle instead of everyone aiming at the centre
+    if(wantCap&&c.line!=='sniper'){const a=t.id*2.39996,r=capBase.r*.38;goal={x:capBase.x+Math.cos(a)*r,y:capBase.y+Math.sin(a)*r};ai.capSpot=goal;}
     else{
       const steps=c.line==='light'?[.42]:c.line==='sniper'?[.3]:[.36,.5,.62,.8];
       const st=Math.min(ai.laneStep,steps.length-1);
       const lx=t.team===0?W*steps[st]:W*(1-steps[st]);
-      if(c.key==='light'||c.key==='sniper'){
+      if(c.line==='light'||c.line==='sniper'){
         if(!ai.bush||ai.bushT<=0){let best=null,bs=Infinity;for(const b of bushes){const d=hyp(b.x-lx,b.y-ai.laneY);if(d<bs){bs=d;best=b;}}ai.bush=bs<400?best:null;ai.bushT=20;}
         ai.bushT-=dt;
         const p=ai.bush||{x:lx,y:ai.laneY};
@@ -2410,8 +2411,20 @@ function aiUpdate(t,dt){
     const h=goTo(t,goal.x,goal.y,dt);
     if(h===null){thr=0;hull=holdFace!=null?holdFace:t.a;}else{hull=h;thr=1;}
     // in encounter/standard caps, sit still inside the circle
-    if(capBase&&hyp(t.x-capBase.x,t.y-capBase.y)<capBase.r*.6&&hyp(goal.x-capBase.x,goal.y-capBase.y)<10){thr=0;hull=holdFace!=null?holdFace:t.a;}
+    if(capBase&&ai.capSpot===goal&&hyp(t.x-goal.x,t.y-goal.y)<capBase.r*.25){thr=0;hull=holdFace!=null?holdFace:t.a;}
   }else if(holdFace!=null&&thr===0){hull=holdFace;}
+  // allies: steer away from any friendly tank close ahead; when two meet nose to nose, the higher id waits
+  if(thr>.1&&ai.unstick<=0){
+    let px=0,py=0,yield_=false;
+    for(const o of tanks){if(o===t||!o.alive||o.team!==t.team)continue;
+      const dx=o.x-t.x,dy=o.y-t.y,d=hyp(dx,dy),R=(t.cls.len+o.cls.len)*.75;if(d>R*1.8||d<1)continue;
+      const ahead=Math.cos(angDiff(hull,Math.atan2(dy,dx)));if(ahead<.2)continue;   // only what is in front of where I am going
+      const w=(1-d/(R*1.8))*ahead;px-=dx/d*w;py-=dy/d*w;
+      if(d<R&&ahead>.6&&t.id>o.id&&Math.cos(angDiff(o.a,Math.atan2(-dy,-dx)))>-.2)yield_=true;  // it is close and not driving away
+    }
+    if(px||py){const m=hyp(px,py),avoid=Math.atan2(py,px);hull=hull+clamp(angDiff(hull,avoid),-1.2,1.2)*Math.min(1,m*1.4);}
+    if(yield_){thr*=.15;ai.stuck=0;ai.lastX=t.x;ai.lastY=t.y;}
+  }
   // local avoidance
   if(ai.unstick>0){ai.unstick-=dt;thr=-.8;hull=t.a+ai.side*.8;}
   else if(Math.abs(thr)>.1){
@@ -2419,7 +2432,7 @@ function aiUpdate(t,dt){
     if(!probeClear(t,hull,sign)){const offs=[.5,1,1.5,2].flatMap(o=>[o*ai.side,-o*ai.side]);for(const o of offs){if(probeClear(t,hull+o,sign)){hull+=o;break;}}}
   }
   ai.stuck+=dt;
-  if(ai.stuck>1.2){const mv=hyp(t.x-ai.lastX,t.y-ai.lastY);if(Math.abs(thr)>.3&&mv<14&&t.mods.tracks<=0){ai.unstick=.9;ai.side*=-1;ai.path=null;}ai.stuck=0;ai.lastX=t.x;ai.lastY=t.y;}
+  if(ai.stuck>1.2){const mv=hyp(t.x-ai.lastX,t.y-ai.lastY);if(Math.abs(thr)>.3&&mv<14&&t.mods.tracks<=0){ai.unstick=rand(.5,1.4);ai.side=Math.random()<.5?-1:1;ai.path=null;}ai.stuck=0;ai.lastX=t.x;ai.lastY=t.y;}
   const d=angDiff(t.a,hull);
   if(thr>0)thr*=clamp(Math.cos(d)*1.4,0,1);
   drive(t,dt,thr,clamp(d*3,-1,1));
