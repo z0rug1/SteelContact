@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.9</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.10</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -1148,7 +1148,7 @@ function salvoStep(t,dt){
     const tx=clamp(S.tx+Math.cos(a)*r,0,W),ty=clamp(S.ty+Math.sin(a)*r,0,H);
     const side=(S.left%2?1:-1)*t.cls.wid*.18,mx=t.x+Math.cos(t.ta)*t.cls.len*.2-Math.sin(t.ta)*side,my=t.y+Math.sin(t.ta)*t.cls.len*.2+Math.cos(t.ta)*side;
     const d=hyp(tx-mx,ty-my);
-    const sh={arty:true,rocket:true,ammo:ARTY_AMMO.HE,sx:mx,sy:my,tx,ty,x:mx,y:my,h:0,t:0,T:artyFlight(d)*ROCKET_FLIGHT,peak:artyPeak(d)*.55,owner:t,team:t.team,dmg:t.s.dmg,splash:t.cls.splash,splashK:1,stunK:1,masked:S.hide,dist:0};
+    const sh={arty:true,rocket:true,ammo:ARTY_AMMO.HE,sx:mx,sy:my,tx,ty,x:mx,y:my,h:0,t:0,T:artyFlight(d)*ROCKET_FLIGHT,peak:artyPeak(d)*.55,owner:t,team:t.team,dmg:t.s.dmg,splash:t.cls.splash,splashK:1,stunK:1,sv:S.id,svn:t.cls.rocket.n,masked:S.hide,dist:0};
     const hit=artyPathHit(sh.sx,sh.sy,sh.tx,sh.ty,sh.peak);if(hit)sh.stopP=hit.p;
     shells.push(sh);
     fx({k:'rocket',id:t.id,x:mx,y:my,hide:S.hide?1:0});
@@ -1185,7 +1185,7 @@ function fire(t){
     // a salvo: rockets leave one by one (salvoStep) and scatter over a wide circle around the aim point
     let tx=t.aimX!==undefined?t.aimX:t.x+Math.cos(t.ta)*600,ty=t.aimY!==undefined?t.aimY:t.y+Math.sin(t.ta)*600;
     const d=hyp(tx-t.x,ty-t.y);if(d>t.cls.maxRange){tx=t.x+(tx-t.x)/d*t.cls.maxRange;ty=t.y+(ty-t.y)/d*t.cls.maxRange;}
-    t.salvo={left:t.cls.rocket.n,gapT:0,tx,ty,hide:fromHide};
+    t.salvoN=(t.salvoN||0)+1;t.salvo={id:t.salvoN,left:t.cls.rocket.n,gapT:0,tx,ty,hide:fromHide};
   }else if(t.cls.arty){
     const am=ARTY_AMMO[t.ammo];
     let tx=t.aimX!==undefined?t.aimX:t.x+Math.cos(t.ta)*600,ty=t.aimY!==undefined?t.aimY:t.y+Math.sin(t.ta)*600;
@@ -1315,7 +1315,7 @@ function blastPoly(g,x0,y0,k=1,n=64){const pts=[];for(let i=0;i<n;i++){const a=g
 const STUN_REACH=1.75;
 function artyImpact(s){
   const shooter=s.owner,R=s.splash,g=blastGeom(s.sx,s.sy,s.x,s.y,R);
-  const ev={k:'arty',rk:s.rocket?1:0,x:s.x,y:s.y,R,dir:+g.dir.toFixed(3),e:+g.e.toFixed(3),sid:shooter?shooter.id:-1,stun:[],hits:[],best:'',total:0};
+  const ev={k:'arty',rk:s.rocket?1:0,sv:s.rocket?s.sv:0,svn:s.rocket?s.svn:0,x:s.x,y:s.y,R,dir:+g.dir.toFixed(3),e:+g.e.toFixed(3),sid:shooter?shooter.id:-1,stun:[],hits:[],best:'',total:0};
   for(const tr of trees)if(tr.alive&&blastN(g,s.x,s.y,tr.x,tr.y)<.6)knockTreeSim(tr,Math.atan2(tr.y-s.y,tr.x-s.x));
   let direct=null;
   for(const t of tanks){
@@ -1350,10 +1350,18 @@ function artyImpact(s){
     dmgs.push([t,dmg]);
   }
   if(cfg.mode==='training'&&shooter&&shooter.isPlayer){
-    const L=dmgs.map(([t,d])=>`${t===direct?'Direct hit':'Splash'} · ${t.name}: ${Math.round(Math.min(d,t.hp))}`);
-    if(s.rocket&&trainHit&&trainHit.salvo&&trainHit.life>4.5){trainHit.lines=[...trainHit.lines.slice(0,1),...[...trainHit.lines.slice(1),...L].slice(-3)];trainHit.total+=dmgs.reduce((a,[t,d])=>a+Math.min(d,t.hp),0);trainHit.lines[0]=`Rocket salvo · ${fmt(trainHit.total)} damage so far`;trainHit.life=7;}
-    else if(L.length||!s.rocket){trainHit={life:7,salvo:!!s.rocket,total:dmgs.reduce((a,[t,d])=>a+Math.min(d,t.hp),0),color:direct?'#63d28d':L.length?'#e2b540':'#ff6b55',
-      lines:s.rocket?[`Rocket salvo · ${fmt(dmgs.reduce((a,[t,d])=>a+Math.min(d,t.hp),0))} damage so far`,...L.slice(0,2)]:L.length?L.slice(0,3):['Missed · no target inside the blast']};}
+    if(s.rocket){
+      // the whole salvo in one panel: damage per target added up across every rocket
+      if(!trainHit||trainHit.sv!==s.sv||trainHit.owner!==shooter)trainHit={sv:s.sv,owner:shooter,salvo:true,n:s.svn,landed:0,total:0,per:new Map(),life:7,lines:[],color:'#e2b540'};
+      const H=trainHit;H.landed++;H.life=7;
+      for(const[t,d]of dmgs){const v=Math.min(d,t.hp),e=H.per.get(t)||{d:0,n:0,dir:0};e.d+=v;e.n++;if(t===direct)e.dir++;H.per.set(t,e);H.total+=v;}
+      const rows=[...H.per.entries()].sort((a,b)=>b[1].d-a[1].d).slice(0,3).map(([t,e])=>`${t.name}: ${fmt(Math.round(e.d))} from ${e.n} ${e.n===1?'rocket':'rockets'}${e.dir?` (${e.dir} direct)`:''}`);
+      H.lines=[`Rocket salvo · ${H.landed}/${H.n} landed · ${fmt(Math.round(H.total))} damage`,...(rows.length?rows:['No target inside any blast yet'])];
+      H.color=H.total>0?'#63d28d':'#ff6b55';
+    }else{
+      const L=dmgs.map(([t,d])=>`${t===direct?'Direct hit':'Splash'} · ${t.name}: ${Math.round(Math.min(d,t.hp))}`);
+      trainHit={life:7,salvo:false,color:direct?'#63d28d':L.length?'#e2b540':'#ff6b55',lines:L.length?L.slice(0,3):['Missed · no target inside the blast']};
+    }
   }
   if(shooter){if(direct&&dmgs.some(([t])=>t===direct)){shooter.st.hits++;shooter.st.pens++;}
     for(const[t,dmg]of dmgs)if(t!==direct){shooter.st.splash+=Math.min(dmg,t.hp);shooter.st.splashHits++;}}
@@ -1477,7 +1485,11 @@ function runFx(ev){
     for(const[id,dmg,crit,killing]of ev.hits){const t=tankById(id);if(!t)continue;addFloat(t.x,t.y-t.cls.len*.6,`−${dmg}`,'#ff6b55',17);
       if(crit&&!killing)addFloat(t.x,t.y+t.cls.len*.6,crit.toUpperCase(),'#e2b540',11);
       if(t===P){arcs.push({a:Math.atan2((sh?sh.y:ev.y)-t.y,(sh?sh.x:ev.x)-t.x),life:1.4});shake=Math.max(shake,12);setBanner('Artillery hit',`−${dmg} HP from ${sh?sh.name:'artillery'}`,'#ff8a6e');}}
-    if(sh&&sh===P){
+    if(sh&&sh===P&&ev.rk){
+      if(!P.salvoAcc||P.salvoAcc.sv!==ev.sv)P.salvoAcc={sv:ev.sv,landed:0,total:0,stun:new Set(),hit:new Set(),kills:0};
+      const A=P.salvoAcc;A.landed++;A.total+=ev.total;for(const[id]of ev.stun)A.stun.add(id);for(const h of ev.hits){A.hit.add(h[0]);if(h[3])A.kills++;}
+      setBanner(A.kills?`Rocket salvo · ${A.kills} destroyed`:'Rocket salvo',`${A.landed}/${ev.svn} landed · −${fmt(A.total)} HP on ${A.hit.size} ${A.hit.size===1?'tank':'tanks'}${A.stun.size?` · ${A.stun.size} stunned`:''}`,A.total>0?'#63d28d':'#9b9a83');
+    }else if(sh&&sh===P){
       const n=ev.stun.length,st=n?` · ${n} stunned`:'';
       if(ev.total>0)setBanner(ev.best,`−${ev.total} HP total${st}`,'#63d28d');
       else if(n)setBanner('Stunned only',`${n} ${n===1?'tank':'tanks'} stunned, no damage`,'#f2d36b');
