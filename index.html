@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.11</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.12</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -438,21 +438,21 @@ fieldset.slab{display:block}
       <ul class="rules">
         <li><b>Effective armor</b>A shell pens when it beats <code>plate ÷ cos(angle)</code>. Past 70° AP and APCR bounce. The reticle turns green, yellow or red for the plate under it.</li>
         <li><b>Ammo</b>AP is the standard round. APCR has 25% more pen and flies faster but loses pen at range. HE never bounces, wrecks modules and splashes damage through thin armor even without a pen.</li>
-        <li><b>View range</b>Each vehicle spots enemies only inside its view circle: Light 760 m, Medium and Sniper 600 m, Heavy 470 m, SPG 430 m. Your team shares what anyone sees.</li>
+        <li><b>View range</b>Each vehicle spots enemies only inside its view circle: Light 114 m, Medium and Sniper 90 m, Heavy 71 m, SPG 65 m. Your team shares what anyone sees.</li>
         <li><b>Sight lines</b>Inside that range, an enemy is visible when anyone on your team has a line to it that no building, wall, rock, bush, tree or smoke cuts. A bush or tree you sit in doesn't block your own view.</li>
-        <li><b>Proximity</b>Within 100 m (the small dotted ring around you) every enemy is spotted automatically, even in a bush or around the corner of a building.</li>
+        <li><b>Proximity</b>Within 15 m (the small dotted ring around you) every enemy is spotted automatically, even in a bush or around the corner of a building.</li>
         <li><b>Firing</b>Firing reveals you for 4 s to every enemy within 1.5× its view range unless a rock or building is in between. Bushes don't hide a muzzle flash. Exception: if you're unspotted and inside a bush, firing only leaves a sound ring. Repeat shots tighten it. Being hit also shows your HP marker for 4 s.</li>
-        <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fly flat and throw a long cone ahead of the impact. Long shots are lobbed high, come down steeply and splash almost evenly all round. Flight time runs from 0.1 s point blank to 2 s at 1500 m. Shells hit rocks, walls and buildings in their path: low, close shots are stopped by cover, high lobs clear it. The reticle marks a blocked shot with a red X. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. Only a direct hit counts as a penetration in your battle stats. Splash is listed separately. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
+        <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fly flat and throw a long cone ahead of the impact. Long shots are lobbed high, come down steeply and splash almost evenly all round. Flight time runs from 0.1 s point blank to 2 s at 225 m. Shells hit rocks, walls and buildings in their path: low, close shots are stopped by cover, high lobs clear it. The reticle marks a blocked shot with a red X. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. Only a direct hit counts as a penetration in your battle stats. Splash is listed separately. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
         <li><b>Rocket artillery</b>The Tempest and Cyclone (rocket branch off the Howler, tiers II and III) fire a salvo of 12 or 16 rockets that scatter over a wide circle around your aim point, then reload for 20 s (Tempest) or 25 s (Cyclone). Each rocket has its own blast and stuns like a full shell. Rockets fly twice as long as a howitzer shell (up to 4 s), so their landing zones give enemies time to drive out. The artillery line continues from the Howler with heavier howitzers (Thunder II, Colossus III); the rockets are a side branch off the Howler. A salvo usually lands several hits on anything inside the circle and softens every tank near it.</li>
         <li><b>Tech tree</b>Every line has three tiers. Battles earn XP for the vehicle you drove; enough XP researches the next vehicle in that line (2,500 XP for tier II, 6,000 for tier III), and credits buy it (12,000 and 30,000). Bots in your battles come from your tier, sometimes one above or below.</li>
         <li><b>Training ground</b>Pick Training as the battle mode to practise with your own vehicles, or press Test drive on any vehicle in the Tech tree to try it once, stock, without buying it. Stationary targets of every class never move or shoot but still spot you. Each hit you land is explained on screen: plate, angle, effective armor, your pen at that range and the damage. Ammo is unlimited, destroyed targets come back after 4 s, and nothing is earned.</li>
-        <li><b>Incoming fire</b>The moment an enemy SPG fires, the landing zone of its shell shows on the ground in red, and the inner area fills up as impact gets closer. Drive out of it. A whistle plays when it is aimed within 300 m of you.</li>
+        <li><b>Incoming fire</b>The moment an enemy SPG fires, the landing zone of its shell shows on the ground in red, and the inner area fills up as impact gets closer. Drive out of it. A whistle plays when it is aimed within 45 m of you.</li>
         <li><b>Stun</b>Artillery shells stun every enemy inside a zone of the same shape, 1.75× larger, for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
         <li><b>Consumables</b>Repair kit fixes tracks, gun and engine and shakes off stun. Extinguisher puts out fire and fireproofs you for 12 s. Smoke drops a 14 s cloud that blocks sight lines.</li>
         <li><b>Bases</b>Standard: capture the enemy base or destroy every tank. Encounter: one neutral base. Hitting a capturer resets its share of the points.</li>
         <li><b>Terrain</b>Trees fall when you drive into them. Shallow fords and marsh slow you. Deep river water is impassable. Ram enemies at speed for damage. Heavier tanks win.</li>
         <li><b>Views</b>Tactical 3D looks down with north up. Chase puts the camera behind your hull. Classic 2D is the top-down map. Switch with <kbd>V</kbd> or the view button under the timer.</li>
-        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, hold <kbd>Shift</kbd> to scope, <kbd>Esc</kbd> pauses. Reversing steers like a car backing up: <kbd>S</kbd>+<kbd>A</kbd> swings the rear left. Phone: left thumb drives, right thumb drags the aim and fires on release; drag back to the middle of the stick before lifting to cancel the shot. Artillery never fires on lift: aim, let go, then press either red FIRE button (left or right edge). Aim stays where you left it; if it was off screen it comes back to normal range. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
+        <li><b>Controls</b>Desktop: <kbd>WASD</kbd> drive, mouse aims, click fires, <kbd>1</kbd>–<kbd>3</kbd> ammo, <kbd>4</kbd>–<kbd>6</kbd> consumables, <kbd>Shift</kbd> (or <kbd>Z</kbd>) switches sniper mode on and off, or hold the right mouse button. In sniper mode the cursor reaches your gun's full range at the edge of the screen, <kbd>Esc</kbd> pauses. Reversing steers like a car backing up: <kbd>S</kbd>+<kbd>A</kbd> swings the rear left. Phone: left thumb drives, right thumb drags the aim and fires on release; drag back to the middle of the stick before lifting to cancel the shot. Artillery never fires on lift: aim, let go, then press either red FIRE button (left or right edge). Aim stays where you left it; if it was off screen it comes back to normal range. For guns, the scope zoom drops back to normal on release. Tap the minimap to send allies there.</li>
       </ul>
     </section>
     <section class="tab" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
@@ -536,6 +536,10 @@ const COUNTDOWN=5;let startT=0,goT=0;
 let trainHit=null;
 // proximity spotting: inside this radius an enemy is always seen, through bushes, smoke, buildings and rocks
 const PROXY=100;
+// Display units: one world unit = 0.15 m everywhere (sizes, ranges, speeds). Nothing in the simulation changes;
+// this only decides what the numbers on screen say. A medium tank (36 units) is 5.4 m long, proximity spotting is
+// 15 m, a howitzer blast is 12 m, and a medium's top speed is about 50 km/h.
+const M_PER_U=.15,mtr=u=>Math.round(u*M_PER_U),kmh=ups=>Math.round(ups*M_PER_U*3.6);
 const CLASSES={
   light:{key:'light',line:'light',tier:1,view:760,name:'Kestrel',type:'Light',role:'Scout',blurb:'Fast scout. Paper armor, quick reload. Spot from bushes, hit sides and rears, never stop moving.',hp:950,speed:165,rot:2.6,trot:2.9,armor:{f:45,s:28,r:20},pen:158,dmg:170,reload:2.4,len:30,wid:19,range:470,acc:.03,bw:3.2,tr:.36,mass:1},
   medium:{key:'medium',line:'medium',tier:1,view:600,name:'Halberd',type:'Medium',role:'Brawler',blurb:'All-rounder. Enough pen for most fronts, enough speed to take the flank that opens.',hp:1400,speed:112,rot:1.8,trot:1.9,armor:{f:95,s:55,r:38},pen:196,dmg:250,reload:4.0,len:36,wid:22,range:380,acc:.024,bw:4.2,tr:.38,mass:1.5},
@@ -1137,7 +1141,7 @@ const seen=t=>!player||t.team===player.team||!t.hidden;
 // ================= combat =================
 function spread(t){return (t.cls.disp||.005)+t.bloom*(t.cls.bloomK||.05)+(t.stun>0?.022:0);}
 // SPG flight time is linear in distance (World-of-Tanks-like),
-// 0.1 s point blank to 2.0 s at maximum range (1500 m).
+// 0.1 s point blank to 2.0 s at maximum range (1500 units = 225 m).
 function salvoStep(t,dt){
   const S=t.salvo;if(!S)return;
   if(!t.alive){t.salvo=null;return;}
@@ -1279,7 +1283,7 @@ function resolveHit(sh,t,h){
     const verdict=res==='pen'?'PENETRATED':res==='ric'?'RICOCHET':res==='he'?(dmg>0?'HE, NO PEN · SPLASH':'HE BLOCKED'):'NO PENETRATION';
     trainHit={life:7,color:res==='pen'?'#63d28d':res==='he'&&dmg>0?'#e2b540':'#ff6b55',lines:[
       `${t.name} · ${h.face} plate ${Math.round(armor)} mm at ${Math.round(ac.ang)}° → ${ac.eff===Infinity?'bounces (over 70°)':Math.round(ac.eff)+' mm effective'}`,
-      `Your ${am.key}: ${Math.round(pen)} mm at ${Math.round(sh.dist)} m${am.fall&&sh.dist>300?' (after range loss)':''}`,
+      `Your ${am.key}: ${Math.round(pen)} mm at ${mtr(sh.dist)} m${am.fall&&sh.dist>300?' (after range loss)':''}`,
       `${verdict} · ${Math.round(Math.min(dmg,t.hp))} damage${crit?' · '+crit:''}`]};
   }
   if(shooter){shooter.st.hits++;if(res==='pen')shooter.st.pens++;else if(res==='he'&&dmg>0){shooter.st.splash+=Math.min(dmg,t.hp);shooter.st.splashHits++;}}
@@ -1609,7 +1613,7 @@ addEventListener('keydown',e=>{
     const am=ammoKeys(player);
     if(k==='1'&&am[0])doAmmo(am[0]);if(k==='2'&&am[1])doAmmo(am[1]);if(k==='3'&&am[2])doAmmo(am[2]);
     if(k==='4')doCons('repair');if(k==='5')doCons('ext');if(k==='6')doCons('smoke');
-    if(k==='z')scope=!scope;
+    if(k==='z'||(k==='shift'&&!e.repeat))scope=!scope;
     if(k==='v')cycleView();
   }
 });
@@ -2580,7 +2584,7 @@ function presentStep(dt){
   // camera
   let focus=player;
   if(!player.alive){deadT+=dt;if(!spectate||!spectate.alive)spectate=tanks.find(t=>t.team===player.team&&t.alive)||player;focus=deadT<2.5?player:spectate;}
-  const scoping=player.alive&&(scope||keys.has('shift')||mouse.right);
+  const scoping=player.alive&&(scope||mouse.right);
   const zt=baseZoom()*(player.alive?player.cls.zoom:1)*userZoom*(scoping?.62:1);
   cam.z+=(zt-cam.z)*Math.min(1,dt*4);
   let lx=0,ly=0;
@@ -2605,11 +2609,24 @@ function presentStep(dt){
       // Mouse: lean by how far the cursor is from the screen centre. Leaning by the turret direction made a loop
       // (camera moves -> map slides under the cursor -> aim moves -> turret turns -> camera moves) that spun the aim
       // around the tank whenever the cursor was near it. This depends only on the cursor, so aiming is exact everywhere.
-      const k=scoping?.5:player.cls.line==='sniper'?.4:.3;let ox=(mouse.x-vw/2)/cam.z*k,oy=(mouse.y-vh/2)/cam.z*k;
+      const z=cam.z,f3=is3D();let ox,oy;
+      if(scoping&&!player.cls.arty){
+        // Sniper mode: the cursor at the screen edge reaches the gun's maximum range (your tank may leave the screen,
+        // as in other tank games). Scale is measured from the view itself (world units per pixel), which only depends
+        // on zoom and tilt, never on where the camera is, so there is no feedback loop.
+        const c0=toWorld(vw/2,vh/2),cx=toWorld(vw/2+100,vh/2),cy=toWorld(vw/2,vh/2-100);
+        const wx=hyp(cx.x-c0.x,cx.y-c0.y)/100||1/z,wy=hyp(cy.x-c0.x,cy.y-c0.y)/100||1/z,mr=player.cls.maxRange*1.04;
+        // cursor position as a fraction of the way to the edge -> that fraction of max range; the lean is whatever
+        // is left after the cursor's own distance from the screen centre
+        const fx=clamp((mouse.x-vw/2)/(vw/2-inset.r-20),-1,1),fy=clamp((mouse.y-vh/2)/(vh/2-inset.t-20),-1,1);
+        ox=fx*mr-(mouse.x-vw/2)*wx;oy=fy*mr-(mouse.y-vh/2)*wy;
+      }else{
+      const k=player.cls.line==='sniper'?.4:.3;ox=(mouse.x-vw/2)/z*k;oy=(mouse.y-vh/2)/z*k;
       // fixed limits (no feedback): keep your tank inside the clear area between the top and bottom HUD
-      const z=cam.z,f3=is3D(),left=inset.l+34,right=vw-inset.r-34,top=inset.t+64,B=Math.max(top+40,vh-inset.b-165);
+      const left=inset.l+34,right=vw-inset.r-34,top=inset.t+64,B=Math.max(top+40,vh-inset.b-165);
       ox=clamp(ox,(vw/2-right)/z*(f3?.8:1),(vw/2-left)/z*(f3?.8:1));
       oy=clamp(oy,(vh/2-B)/z*(f3?.85:1),(vh/2-top)/z*(f3?.55:1));
+      }
       const rot=f3?camYaw+Math.PI/2:0,c=Math.cos(rot),sn=Math.sin(rot);
       lx=ox*c-oy*sn;ly=ox*sn+oy*c;cam.mouseLean=true;
     }
@@ -2820,9 +2837,9 @@ function render(){
   drawParts();
   if(player&&player.alive)for(const a of arcs){ctx.strokeStyle=`rgba(255,95,76,${Math.min(1,a.life)})`;ctx.lineWidth=5;ctx.beginPath();ctx.arc(player.x,player.y,player.cls.len*.9+14,a.a-.38,a.a+.38);ctx.stroke();}
   if(player.alive){ctx.setLineDash([14/cam.z,10/cam.z]);ctx.strokeStyle='rgba(160,215,255,.28)';ctx.lineWidth=1.6/cam.z;ctx.beginPath();ctx.arc(player.x,player.y,player.cls.view,0,TAU);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='rgba(160,215,255,.55)';ctx.font=FONT(600,11/cam.z);ctx.textAlign='center';ctx.fillText(`VIEW ${player.cls.view} m`,player.x,player.y-player.cls.view-5/cam.z);
+    ctx.fillStyle='rgba(160,215,255,.55)';ctx.font=FONT(600,11/cam.z);ctx.textAlign='center';ctx.fillText(`VIEW ${mtr(player.cls.view)} m`,player.x,player.y-player.cls.view-5/cam.z);
     ctx.strokeStyle='rgba(242,211,107,.32)';ctx.lineWidth=1.4/cam.z;ctx.setLineDash([4/cam.z,5/cam.z]);ctx.beginPath();ctx.arc(player.x,player.y,PROXY,0,TAU);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='rgba(242,211,107,.6)';ctx.font=FONT(600,10/cam.z);ctx.fillText(`PROXIMITY ${PROXY} m`,player.x,player.y+PROXY+12/cam.z);}
+    ctx.fillStyle='rgba(242,211,107,.6)';ctx.font=FONT(600,10/cam.z);ctx.fillText(`PROXIMITY ${mtr(PROXY)} m`,player.x,player.y+PROXY+12/cam.z);}
   if((mode==='play'||mode==='pause')&&player.alive)drawAim();
   ctx.setTransform(dpr,0,0,dpr,0,0);
   drawMarkers();drawFloats();drawHUD();drawSticks();
@@ -2830,7 +2847,7 @@ function render(){
 }
 // Incoming artillery: as soon as an enemy shell is in the air, its landing zone shows on the ground (the real blast
 // shape, ending where the shell will stop if it hits cover). The inner disc fills up as impact approaches.
-// A whistle plays once for shells landing within 300 m of you.
+// A whistle plays once for shells landing within 300 units (45 m) of you.
 const warned=new Set();
 function incoming(){
   const out=[];if(!player)return out;
@@ -2994,6 +3011,7 @@ function drawHUD(){
     ctx.textAlign='left';lines.forEach((l,i)=>{ctx.fillStyle=i===lines.length-1&&!trainHit.salvo?trainHit.color:'#ebe6d2';ctx.fillText(l,L+2,y0+18+i*17);});
     ctx.restore();
   }
+  if(player&&player.alive&&(scope||mouse.right)&&!player.cls.arty){ctx.save();ctx.textAlign='center';ctx.font=FONT(700,12);ctx.fillStyle='rgba(16,18,12,.7)';const w=ctx.measureText('SNIPER MODE').width+24;rrect(vw/2-w/2,T+(vh<500?78:96),w,22,3);ctx.fill();ctx.fillStyle='#e2b540';ctx.fillText('SNIPER MODE',vw/2,T+(vh<500?78:96)+15);ctx.restore();}
   // start countdown
   if(startT>0||goT>0){
     const n=Math.ceil(startT),cy=T+(vh<500?44:64),ph=startT>0?startT-Math.floor(startT):goT/1.1;
@@ -3018,7 +3036,7 @@ function drawHUD(){
   if(hintT>0&&mode==='play'){
     ctx.globalAlpha=Math.min(1,hintT);ctx.textAlign='center';ctx.font=FONT(600,12);ctx.fillStyle='#ebe6d2';
     const touch=lastInput==='touch'||matchMedia('(pointer:coarse)').matches;
-    const txt=touch?(player&&player.cls.arty?'LEFT THUMB DRIVES · RIGHT THUMB AIMS · TAP FIRE TO SHOOT':'LEFT THUMB DRIVES · RIGHT THUMB AIMS · LIFT TO FIRE · BACK TO CENTRE TO CANCEL'):'WASD DRIVE · MOUSE AIM · CLICK FIRE · 1-3 AMMO · 4-6 KITS · SHIFT SCOPE';
+    const txt=touch?(player&&player.cls.arty?'LEFT THUMB DRIVES · RIGHT THUMB AIMS · TAP FIRE TO SHOOT':'LEFT THUMB DRIVES · RIGHT THUMB AIMS · LIFT TO FIRE · BACK TO CENTRE TO CANCEL'):'WASD DRIVE · MOUSE AIM · CLICK FIRE · 1-3 AMMO · 4-6 KITS · SHIFT SNIPER MODE';
     if(ctx.measureText(txt).width>vw-32){const parts=txt.split(' · ');const half=Math.ceil(parts.length/2);ctx.fillText(parts.slice(0,half).join(' · '),vw/2,B-194);ctx.fillText(parts.slice(half).join(' · '),vw/2,B-178);}
     else ctx.fillText(txt,vw/2,B-178);ctx.globalAlpha=1;
   }
@@ -3121,7 +3139,7 @@ function drawPlayerPanel(B){
   btn('REP',cd('repair')||'kit',player.cons.repair>0?'off':'ready',()=>doCons('repair'),broken&&player.cons.repair<=0);bx+=bw+gapB;
   btn('EXT',cd('ext')||'kit',player.cons.ext>0?'off':'ready',()=>doCons('ext'),player.mods.fire>0&&player.cons.ext<=0);bx+=bw+gapB;
   btn('SMK',cd('smoke')||`×${player.smokeLeft}`,player.cons.smoke>0||player.smokeLeft<=0?'off':'ready',()=>doCons('smoke'));bx+=bw+groupGap;
-  btn('SCOPE',scope?'on':'off',scope?'sel':'ready',()=>{scope=!scope;});
+  {const on=scope||mouse.right;btn('SCOPE',on?'on':'off',on?'sel':'ready',()=>{scope=!scope;});}
   // concealment / sixth sense
   const chipY=by-26;
   if(sixthT>0){
@@ -3582,9 +3600,9 @@ function overlays3D(){
   }
   for(const p of pings){if(p.team!==undefined&&p.team!==player.team)continue;const a=p.life/p.max,pulse=(battleTime*2)%1;ctx.strokeStyle=`rgba(226,181,64,${a})`;ctx.lineWidth=3;if(gPath(p.x,p.y,20+pulse*40))ctx.stroke();const q=proj(p.x,p.y,1);if(q){ctx.fillStyle=`rgba(226,181,64,${a})`;ctx.beginPath();ctx.arc(q.x,q.y,5,0,TAU);ctx.fill();}}
   if(player&&player.alive){ctx.setLineDash([12,9]);ctx.strokeStyle='rgba(160,215,255,.3)';ctx.lineWidth=1.6;if(gPath(player.x,player.y,player.cls.view,0,TAU,2))ctx.stroke();ctx.setLineDash([]);
-    const q=proj(player.x,player.y-player.cls.view,2);if(q){ctx.fillStyle='rgba(160,215,255,.6)';ctx.font=FONT(600,11);ctx.textAlign='center';ctx.fillText(`VIEW ${player.cls.view} m`,q.x,q.y-5);}
+    const q=proj(player.x,player.y-player.cls.view,2);if(q){ctx.fillStyle='rgba(160,215,255,.6)';ctx.font=FONT(600,11);ctx.textAlign='center';ctx.fillText(`VIEW ${mtr(player.cls.view)} m`,q.x,q.y-5);}
     ctx.setLineDash([4,5]);ctx.strokeStyle='rgba(242,211,107,.36)';ctx.lineWidth=1.4;if(gPath(player.x,player.y,PROXY,0,TAU,2))ctx.stroke();ctx.setLineDash([]);
-    const q2=proj(player.x,player.y+PROXY,2);if(q2){ctx.fillStyle='rgba(242,211,107,.65)';ctx.font=FONT(600,10);ctx.textAlign='center';ctx.fillText(`PROXIMITY ${PROXY} m`,q2.x,q2.y+13);}}
+    const q2=proj(player.x,player.y+PROXY,2);if(q2){ctx.fillStyle='rgba(242,211,107,.65)';ctx.font=FONT(600,10);ctx.textAlign='center';ctx.fillText(`PROXIMITY ${mtr(PROXY)} m`,q2.x,q2.y+13);}}
   if(player&&player.alive)for(const a of arcs){ctx.strokeStyle=`rgba(255,95,76,${Math.min(1,a.life)})`;ctx.lineWidth=5;if(gPath(player.x,player.y,player.cls.len*.95+16,a.a-.38,a.a+.38,3))ctx.stroke();}
   if((mode==='play'||mode==='pause')&&player.alive)drawAim3D();
 }
@@ -3784,10 +3802,10 @@ function renderSlabs(){
   $('slabs').innerHTML=`
     <div class="slab"><div><div class="k">Hull &amp; armor</div><div class="v"><em>${fmt(s.hp)}</em> HP</div>
       ${meter(s.hp,b0.hp,maxes.hp)}<div class="figs" style="margin-top:4px"><span>Front <b>${r(s.armor.f)}</b></span><span>Side <b>${r(s.armor.s)}</b></span><span>Rear <b>${r(s.armor.r)}</b> mm</span></div></div>${ICONS.hull}</div>
-    <div class="slab"><div><div class="k">Main gun</div><div class="v">${c.rocket?`<em>${c.rocket.n} × ${fmt(s.dmg)}</em> rockets · ${c.rocket.scatter} m area`:c.arty?`<em>${fmt(s.dmg)}</em> dmg · ${c.splash} m splash`:`<em>${r(s.pen)}</em> mm · ${fmt(s.dmg)} dmg`}</div>
-      ${meter(dpm,dpm0,maxes.dpm)}<div class="figs" style="margin-top:4px"><span>Reload <b>${s.reload.toFixed(1)} s</b></span>${c.rocket?`<span>Salvo <b>${c.rocket.n}</b> over ${(c.rocket.n*c.rocket.gap).toFixed(1)} s</span><span>Blast <b>${c.splash} m</b> each</span>`:`<span>DPM <b>${fmt(dpm)}</b></span>`}<span>Range <b>${fmt(c.maxRange)}</b></span></div></div>${ICONS.gun}</div>
-    <div class="slab"><div><div class="k">Mobility</div><div class="v"><em>${r(s.speed/2.6)}</em> km/h</div>
-      ${meter(s.speed,b0.speed,maxes.speed)}<div class="figs" style="margin-top:4px"><span>Hull turn <b>${r(s.rot*57)}°/s</b></span><span>Traverse <b>${r(s.trot*57)}°/s</b></span><span>View <b>${c.view} m</b></span>${c.casemate?'<span><b>30°</b> gun arc</span>':''}</div></div>${ICONS.mob}</div>
+    <div class="slab"><div><div class="k">Main gun</div><div class="v">${c.rocket?`<em>${c.rocket.n} × ${fmt(s.dmg)}</em> rockets · ${mtr(c.rocket.scatter)} m area`:c.arty?`<em>${fmt(s.dmg)}</em> dmg · ${mtr(c.splash)} m splash`:`<em>${r(s.pen)}</em> mm · ${fmt(s.dmg)} dmg`}</div>
+      ${meter(dpm,dpm0,maxes.dpm)}<div class="figs" style="margin-top:4px"><span>Reload <b>${s.reload.toFixed(1)} s</b></span>${c.rocket?`<span>Salvo <b>${c.rocket.n}</b> over ${(c.rocket.n*c.rocket.gap).toFixed(1)} s</span><span>Blast <b>${mtr(c.splash)} m</b> each</span>`:`<span>DPM <b>${fmt(dpm)}</b></span>`}<span>Range <b>${fmt(mtr(c.maxRange))} m</b></span></div></div>${ICONS.gun}</div>
+    <div class="slab"><div><div class="k">Mobility</div><div class="v"><em>${kmh(s.speed)}</em> km/h</div>
+      ${meter(s.speed,b0.speed,maxes.speed)}<div class="figs" style="margin-top:4px"><span>Hull turn <b>${r(s.rot*57)}°/s</b></span><span>Traverse <b>${r(s.trot*57)}°/s</b></span><span>View <b>${mtr(c.view)} m</b></span>${c.casemate?'<span><b>30°</b> gun arc</span>':''}</div></div>${ICONS.mob}</div>
     <div class="slab"><div><div class="k">Ammo rack</div><div class="chips" style="margin-top:3px">${Object.entries(lo).map(([k,n])=>`<span class="${k==='APCR'?'apcr':k==='HE'&&!c.arty?'he':''}">${n} × ${k}</span>`).join('')}</div>
       <div class="figs" style="margin-top:5px"><span>Repair kit · Extinguisher · 2 Smoke</span></div></div>${ICONS.ammo}</div>
     ${owned(key)?`<div class="slab wide"><div class="k">Upgrades <span style="letter-spacing:0;text-transform:none;font-weight:600;color:var(--muted)">· shown on your vehicle</span></div>${upRows}</div>`
