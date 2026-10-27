@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.15</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.16</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -940,6 +940,9 @@ function navLine(x0,y0,x1,y1){const d=hyp(x1-x0,y1-y0),n=Math.ceil(d/16);for(let
 let bushes=[],bushLayer=null,trees=[],rings=[],craters=[],clouds=[],pings=[],bases=[];
 let obstacles=[],terrain=null,decal=null,dctx=null,tanks=[],shells=[],parts=[],floats=[],feed=[],arcs=[];
 let waves=[],blastFlash=0;
+const SKIRM_RESPAWN=8,ASSAULT_TIME=360;let teamScore=[0,0];
+const MODE_NAME={standard:'Standard battle',encounter:'Encounter',assault:'Assault',skirmish:'Skirmish',training:'Training ground'};
+const skirmTarget=()=>cfg.size*3;
 let player=null,mode='menu',battleTime=0,timeLeft=BATTLE_TIME,banner=null,shake=0,hintT=0,deadT=0,spectate=null,endShown=false;
 let stats={},timeScale=1,slowT=0,sixthT=0,scope=false,userZoom=1,cfg=null,result=null;
 const cam={x:W/2,y:H/2,z:1};
@@ -969,15 +972,20 @@ function newBattle(opts={}){
     const md=opts.trial?'training':st.mode,tk=opts.trial||st.tank;
     C={mode:md,map:md==='training'&&st.map==='random'?'steppe':mapId,diffKey:st.diff,size:st.size===7?7:5,sky:skyKey,seed:Math.floor(Math.random()*1e9),tier:(CLASSES[tk]||CLASSES.medium).tier};
   }
-  NET.ghost=false;NET.hist=[];NET.seqT=new Map();NET.reconOK=false;
-  cfg={mode:C.mode,map:C.map,diff:DIFF[C.diffKey]||DIFF.veteran,diffKey:C.diffKey,size:C.size,sky:C.sky,seed:C.seed,tier:C.tier||1,raw:C};
+  if(C.mode==='assault'&&C.def===undefined)C.def=Math.random()<.5?0:1;
+  NET.ghost=false;NET.hist=[];NET.seqT=new Map();NET.reconOK=false;NET.off=undefined;NET.jit=undefined;NET.offT=undefined;
+  cfg={mode:C.mode,map:C.map,diff:DIFF[C.diffKey]||DIFF.veteran,diffKey:C.diffKey,size:C.size,sky:C.sky,seed:C.seed,tier:C.tier||1,def:C.def,raw:C};
   M=genMap(cfg.map,cfg.seed);obstacles=M.obstacles;bushes=M.bushes;trees=M.trees;
   for(const o of obstacles)if(o.h3===undefined)o.h3=obsHeight(o);
   terrain=renderTerrain(M);bushLayer=renderBushes(bushes);buildNav();
   decal=document.createElement('canvas');decal.width=W/2;decal.height=H/2;dctx=decal.getContext('2d');dctx.scale(.5,.5);
   rings=[];craters=[];clouds=[];pings=[];shells=[];parts=[];waves=[];blastFlash=0;floats=[];feed=[];arcs=[];banner=null;battleTime=0;timeLeft=BATTLE_TIME;endShown=false;deadT=0;spectate=null;
   timeScale=1;slowT=0;sixthT=0;scope=false;result=null;touchAimPt=null;touchOff=null;touchBase=null;
-  bases=cfg.mode==='encounter'?[{x:M.enc.x,y:M.enc.y,r:105,team:-1,pts:[0,0]}]:[{x:230,y:850,r:105,team:0,pts:[0,0]},{x:W-230,y:850,r:105,team:1,pts:[0,0]}];
+  bases=cfg.mode==='encounter'?[{x:M.enc.x,y:M.enc.y,r:105,team:-1,pts:[0,0]}]
+    :cfg.mode==='assault'?[{x:cfg.def===0?230:W-230,y:850,r:105,team:cfg.def,pts:[0,0]}]
+    :cfg.mode==='skirmish'?[]
+    :[{x:230,y:850,r:105,team:0,pts:[0,0]},{x:W-230,y:850,r:105,team:1,pts:[0,0]}];
+  teamScore=[0,0];if(cfg.mode==='assault')timeLeft=ASSAULT_TIME;
   const me=opts.me||'local';
   const myTank=opts.trial||st.tank,roster=opts.roster||buildRoster(opts.humans||[{id:'local',name:'You',tank:myTank,team:0,up:opts.trial&&!owned(opts.trial)?{}:upOf(myTank)}]);
   tanks=roster.map((r,i)=>{
@@ -998,13 +1006,13 @@ function newBattle(opts={}){
   disposeWorld();
   if(view!=='2d'){if(!build3D())view='2d';}
   showGL();camYaw=-Math.PI/2;
-  setBanner(MAPS[cfg.map].name,`${cfg.mode==='encounter'?'Encounter':'Standard battle'} · ${n} v ${n} · ${cfg.diff.name} · ${SKIES[cfg.sky].name}`,'#e2b540');banner.life=COUNTDOWN+.6;
+  setBanner(MAPS[cfg.map].name,`${MODE_NAME[cfg.mode]||'Standard battle'}${cfg.mode==='assault'?(player.team===cfg.def?' · you defend':' · you attack'):cfg.mode==='skirmish'?` · first to ${skirmTarget()} kills`:''} · ${tanks.filter(t=>t.team===player.team).length} v ${tanks.filter(t=>t.team!==player.team).length} · ${cfg.diff.name} · ${SKIES[cfg.sky].name}`,'#e2b540');banner.life=COUNTDOWN+.6;
   return roster;
 }
 function buildRoster(humans){
   if(cfg.mode==='training')return buildTraining(humans);
-  const C=cfg,n=C.size,pool=['heavy','medium','light','sniper','spg','medium','heavy'];
-  const ys=[850,560,1140,330,1370,700,1000];
+  const C=cfg,pool=['heavy','medium','light','sniper','spg','medium','heavy','medium'];
+  const ys=[850,560,1140,330,1370,700,1000,450];
   // bots are drawn from the battle's tier: mostly the same, sometimes one above or below
   const botKey=line=>vehicleFor(line==='spg'&&Math.random()<.5?'rkt':line,clamp((C.tier||1)+[-1,0,0,0,1][Math.floor(Math.random()*5)],1,3));
   const place=(k,team)=>{const ln=CLASSES[k]?CLASSES[k].line:k,x=ln==='spg'?110:ln==='sniper'?170:240;return team===0?x:W-x;};
@@ -1012,6 +1020,8 @@ function buildRoster(humans){
   const shuf=a=>[...a].sort(()=>Math.random()-.5),na=shuf(NAMES_A),nb=shuf(NAMES_B);
   const out=[];
   for(const team of[0,1]){
+    // in Assault the attackers bring one extra tank: dug-in defenders win an even fight
+    const n=C.size+(C.mode==='assault'&&team!==C.def?1:0);
     const hs=humans.filter(h=>h.team===team).slice(0,n);
     const keys=hs.map(h=>h.tank),rest=[...pool];
     for(const k of keys){const i=rest.indexOf(CLASSES[k]?CLASSES[k].line:k);if(i>=0)rest.splice(i,1);}
@@ -1372,8 +1382,18 @@ function artyImpact(s){
   fx(ev);
   for(const[t,dmg]of dmgs)damage(t,dmg,shooter,{});
 }
+// A bot that gets hit goes after the shooter: to where it was seen (or roughly where the shot came from if hidden),
+// then roams around there before going back to its job. Nearby allies hear about it too.
+function aiAlert(t,x,y,exact){
+  if(!t.ai||!t.alive||t.cls.arty||t.dummy)return;
+  const n=exact?0:110,h=t.ai.hunt;
+  if(h&&battleTime<h.until&&hyp(h.x-x,h.y-y)<150){h.until=Math.max(h.until,battleTime+12);return;}
+  t.ai.hunt={x:clamp(x+rand(-n,n),60,W-60),y:clamp(y+rand(-n,n),60,H-60),until:battleTime+rand(20,30),px:undefined,py:undefined};
+}
 function damage(t,dmg,src,opts={}){
-  if(!t.alive||dmg<=0)return;
+  if(!t.alive||dmg<=0||t.prot>0)return;
+  if(src&&src!==t&&src.team!==t.team&&src.alive){const ex=!src.hidden;aiAlert(t,src.x,src.y,ex);
+    for(const o of tanks)if(o!==t&&o.ai&&o.alive&&o.team===t.team&&hyp(o.x-t.x,o.y-t.y)<600&&Math.random()<.6)aiAlert(o,src.x,src.y,ex);}
   dmg=Math.min(dmg,t.hp);
   t.hp=Math.max(0,t.hp-dmg);t.marker=MARKER_TIME;
   if(src&&src!==t){src.dmgDealt+=dmg;src.st.dmg+=dmg;if(opts.ram)src.st.ram+=dmg;}
@@ -1392,6 +1412,7 @@ function damage(t,dmg,src,opts={}){
 function kill(t,src,ammo){
   t.alive=false;t.hp=0;t.spd=0;t.mods={tracks:0,gun:0,engine:0,fire:0};t.stun=0;t.stunBy=null;t.capturing=false;
   if(src&&src!==t){src.kills++;src.st.kills++;}
+  if(cfg.mode==='skirmish'&&mode==='play'){teamScore[1-t.team]++;t.respawn=SKIRM_RESPAWN;if(teamScore[1-t.team]>=skirmTarget())endBattle(1-t.team,'score');}
   fx({k:'kill',id:t.id,src:src&&src!==t?src.id:-1,ammo:ammo?1:0});
 }
 // A heavy shell landing, in layers: white-hot core, fireball rolling out along the blast cone, ground shockwave ring,
@@ -1512,7 +1533,15 @@ function runFx(ev){
     sfx('boom',Math.max(.35,vol(t)));
     shake=Math.max(shake,ev.ammo?16:9*vol(t));
     if(src&&src===P){slowT=.7;if(NET.role==='off')timeScale=.35;}
-    if(t===P){deadT=0;spectate=null;document.getElementById('deadtxt').textContent=`Destroyed by ${src?src.name:'fire'}${ev.ammo?' (ammo rack)':''}. Spectating.`;document.getElementById('deadbar').hidden=false;}
+    if(t===P){deadT=0;spectate=null;document.getElementById('deadtxt').textContent=`Destroyed by ${src?src.name:'fire'}${ev.ammo?' (ammo rack)':''}. ${cfg.mode==='skirmish'?'Respawning shortly.':'Spectating.'}`;document.getElementById('deadbar').hidden=false;}
+    break;}
+  case 'respawn':{
+    const t=tankById(ev.id);if(!t)break;
+    Object.assign(t,{alive:true,hp:t.maxHp,x:ev.x,y:ev.y,a:ev.a,ta:ev.a,spd:0,prevX:ev.x,prevY:ev.y,stun:0,marker:0,prot:3});
+    if(t.nbuf)for(const e of t.nbuf){e.x=ev.x;e.y=ev.y;e.a=ev.a;e.ta=ev.a;}
+    t.net={x:ev.x,y:ev.y,a:ev.a,ta:ev.a};
+    if(t===P){deadT=0;spectate=null;$('deadbar').hidden=true;NET.hist=[];t.recon=null;setBanner('Back in the fight','3 s of spawn protection','#63d28d');}
+    addFloat(t.x,t.y-34,'RESPAWN',t.team===P.team?PAL.ally.team:PAL.enemy.team,11);
     break;}
   case 'tree':{const tr=trees[ev.i];if(tr)knockTree(tr,ev.dir);break;}
   case 'cons':{
@@ -1898,8 +1927,9 @@ function joinRoom(code,opts={}){
     try{if(NET.relayCancel&&!conn.relay)NET.relayCancel();}catch(_){}NET.relayCancel=null;
     NET.conn=conn;NET.rx=performance.now();NET.via=how;
     const lag=+q.get('lag')||0;
+    const jit=+q.get('jit')||0;let due=0;  // test-only: extra random delay on incoming data, order preserved
     if(lag){const raw=conn.send.bind(conn);conn.send=m=>setTimeout(()=>raw(m),lag/2);}
-    conn.on('data',d=>{const go=()=>{if(NET.conn===conn){NET.rx=performance.now();clientOnData(d);}};if(lag)setTimeout(go,lag/2);else go();});
+    conn.on('data',d=>{const go=()=>{if(NET.conn===conn){NET.rx=performance.now();clientOnData(d);}};if(lag||jit){const now=performance.now();due=Math.max(due,now+lag/2+Math.random()*jit);setTimeout(go,due-now);}else go();});
     conn.on('close',()=>{if(NET.conn===conn)clientLost();});
     conn.on('error',()=>{if(NET.conn===conn)clientLost();});
     show(how==='relay'?'Connected through the backup relay. Waiting for the host to deploy.':'Connected. Waiting for the host to deploy.');
@@ -2016,7 +2046,7 @@ function clientOnData(d){
       NET.rejoin=null;setBanner('Reconnected','You have your tank back','#63d28d');}
     return;
   }
-  if(d.t==='s'){if(tanks.length&&(mode==='play'||mode==='over'||mode==='pause'))applySnap(d);return;}
+  if(d.t==='s'){NET.snapB=(NET.snapB||0)*.9+JSON.stringify(d).length*.1;if(tanks.length&&(mode==='play'||mode==='over'||mode==='pause'))applySnap(d);return;}
   if(d.t==='end'){
     if(player&&d.st){player.st=d.st;stats=d.st;}
     result=d.result;
@@ -2069,10 +2099,10 @@ function packMe(t){
 }
 function netTick(dt){
   if(NET.role!=='host'||!NET.conns.size||!tanks.length)return;
-  NET.sendT-=dt;if(NET.sendT>0)return;NET.sendT=1/15;
+  NET.sendT-=dt;if(NET.sendT>0)return;NET.sendT=1/20;
   const tk=tanks.map(packTank),sh=shells.map(packShell),b=bases.map(b=>[r1(b.pts[0]),r1(b.pts[1])]),rg=rings.map(r=>[r.team,r1(r.x),r1(r.y),r1(r.r),r1(r.life),r.max]);
   const ev=NET.events;NET.events=[];
-  for(const c of NET.conns.values()){if(!c.conn.open||c.pending)continue;try{c.conn.send({t:'s',tl:r1(timeLeft),cd:r1(startT),tk,sh,b,rg,ev,me:c.tankRef?packMe(c.tankRef):null});}catch(_){}}
+  for(const c of NET.conns.values()){if(!c.conn.open||c.pending)continue;try{c.conn.send({t:'s',ht:Math.round(performance.now()),sc:teamScore,tl:r1(timeLeft),cd:r1(startT),tk,sh,b,rg,ev,me:c.tankRef?packMe(c.tankRef):null});}catch(_){}}
 }
 function hostSendEnd(){
   if(NET.role!=='host')return;
@@ -2081,12 +2111,20 @@ function hostSendEnd(){
 }
 // ---- client side: apply snapshots, predict own tank ----
 function applySnap(m){
+  // Snapshot timing: map the host's send time onto this clock. 'off' = the smallest delay seen (allowed to creep up
+  // slowly for clock drift); 'jit' = how much later than that snapshots tend to arrive. Playback runs that far behind.
+  const now=performance.now();
+  if(m.ht!==undefined){const lag=now-m.ht;
+    NET.off=NET.off===undefined?lag:Math.min(NET.off+(now-(NET.offT||now))*.001,lag);NET.offT=now;
+    NET.jit=Math.max((NET.jit||40)*.997,lag-NET.off);}
+  if(m.sc)teamScore=m.sc;
   timeLeft=m.tl;if(m.cd!==undefined&&Math.abs(m.cd-startT)>.3)startT=m.cd;
   m.tk.forEach((a,i)=>{
     const t=tanks[i];if(!t)return;
     const[x,y,an,ta,hp,fl,mk,stn,stm,spd,dd,kl]=a;
     t.net={x,y,a:an,ta};
     if(t.net0===undefined){t.x=x;t.y=y;t.a=an;t.ta=ta;t.net0=1;}
+    if(t!==player){const B=t.nbuf||(t.nbuf=[]);B.push({tm:m.ht!==undefined?m.ht:now,x,y,a:an,ta});if(B.length>16)B.shift();}
     t.hp=hp;t.alive=!!(fl&1);t.hidden=!!(fl&2);t.capturing=!!(fl&4);t.inBush=!!(fl&64);
     if(t!==player){t.mods.tracks=fl&8?1:0;t.mods.fire=fl&32?1:0;}
     t.marker=mk;t.stun=stn;t.stunMax=stm||1;t.spd=spd;t.dmgDealt=dd;t.kills=kl;
@@ -2125,6 +2163,18 @@ function clientUpdate(dt){
         const ex=n.x-t.x,ey=n.y-t.y;
         if(hyp(ex,ey)>90){t.x=n.x;t.y=n.y;NET.cs=(NET.cs||0)+hyp(ex,ey);}else{const c=1-Math.exp(-dt*3.5);t.x+=ex*c;t.y+=ey*c;NET.cs=(NET.cs||0)+hyp(ex*c,ey*c);}
         t.a+=angDiff(t.a,n.a)*(1-Math.exp(-dt*3));
+      }else if(t.nbuf&&t.nbuf.length>=2){
+        // other tanks are shown slightly in the past (50 ms + measured jitter), interpolated between the snapshots around that moment:
+        // smooth even when updates arrive unevenly (relay, mobile data). Short gaps are bridged by extrapolating.
+        const B=t.nbuf,rt=NET.off!==undefined?performance.now()-NET.off-clamp(50+(NET.jit||40),60,400):performance.now()-110;let i=B.length-1;while(i>0&&B[i-1].tm>rt)i--;
+        let px,py,pa,pta;
+        if(i===0||B[i].tm<=rt){const L=B[B.length-1],P=B[B.length-2],span=Math.max(1,L.tm-P.tm),u=clamp((rt-L.tm)/span,0,1.5);
+          px=L.x+(L.x-P.x)*u;py=L.y+(L.y-P.y)*u;pa=L.a+angDiff(P.a,L.a)*u;pta=L.ta+angDiff(P.ta,L.ta)*u;}
+        else{const A=B[i-1],C=B[i],u=clamp((rt-A.tm)/Math.max(1,C.tm-A.tm),0,1);
+          px=A.x+(C.x-A.x)*u;py=A.y+(C.y-A.y)*u;pa=A.a+angDiff(A.a,C.a)*u;pta=A.ta+angDiff(A.ta,C.ta)*u;}
+        if(hyp(px-t.x,py-t.y)>150){t.x=px;t.y=py;}else{const s2=1-Math.exp(-dt*30);t.x+=(px-t.x)*s2;t.y+=(py-t.y)*s2;}
+        t.a+=angDiff(t.a,pa)*Math.min(1,dt*30);t.ta+=angDiff(t.ta,pta)*Math.min(1,dt*30);
+        t.vx=Math.cos(t.a)*t.spd;t.vy=Math.sin(t.a)*t.spd;t.trackPhase+=t.spd*dt;
       }else{
         t.x+=(n.x-t.x)*k;t.y+=(n.y-t.y)*k;t.a+=angDiff(t.a,n.a)*k;t.ta+=angDiff(t.ta,n.ta)*k;
         t.vx=Math.cos(t.a)*t.spd;t.vy=Math.sin(t.a)*t.spd;t.trackPhase+=t.spd*dt;
@@ -2347,7 +2397,9 @@ function aiUpdate(t,dt){
   if(aiWait(ai,'rep',t.cons.repair<=0&&(t.mods.tracks>1||t.mods.engine>2||t.mods.gun>2||(cfg.diff.smart&&t.stun>5)),dt,.4,1.2))useCons(t,'repair');
   if(aiWait(ai,'ext',t.cons.ext<=0&&t.mods.fire>0,dt,.3,1))useCons(t,'ext');
   if(t.smokeLeft>0&&t.cons.smoke<=0&&t.hp/t.maxHp<.45&&t.seenByEnemy&&visibleEnemiesOf(t)>=2&&Math.random()<dt*.6)useCons(t,'smoke');
+  if(ai.target&&ai.target.alive&&ai.target.hidden&&ai.target.seenX!==undefined)aiAlert(t,ai.target.seenX,ai.target.seenY,true);  // lost sight: remember where
   if(ai.target&&(ai.target.hidden||!ai.target.alive))ai.target=null;
+  if(ai.hunt&&battleTime>=ai.hunt.until)ai.hunt=null;
   if(ai.retarget<=0||!ai.target){ai.retarget=rand(1.2,2.6);ai.target=pickTarget(t);}
   let tg=ai.target;
   const hpF=t.hp/t.maxHp;
@@ -2370,6 +2422,9 @@ function aiUpdate(t,dt){
     if(!ai.retreatPt||Math.random()<dt*.2)ai.retreatPt=retreatPoint(t);goal=ai.retreatPt;
   }else if(threatened&&hyp(t.x-ownBase.x,t.y-ownBase.y)>(tg&&!tg.blind&&dist<500?1e9:200)&&hyp(t.x-ownBase.x,t.y-ownBase.y)<1500){
     goal={x:ownBase.x,y:ownBase.y};
+  }else if(cfg.mode==='assault'&&capBase&&c.line!=='sniper'&&(timeLeft<130||enemiesAlive<=1)&&hyp(t.x-capBase.x,t.y-capBase.y)>capBase.r*.5){
+    // attackers running out of time stop trading shots and go for the circle
+    const a=t.id*2.39996,r=capBase.r*.38;goal={x:capBase.x+Math.cos(a)*r,y:capBase.y+Math.sin(a)*r};ai.capSpot=goal;
   }else if(tg&&!tg.blind){
     const R=c.range;
     if(c.line==='sniper'){
@@ -2387,13 +2442,22 @@ function aiUpdate(t,dt){
       else{hull=toT+ai.side*.3;thr=Math.sin(ai.peek*.8)*.5;}
     }
   }else if(ai.order){goal={x:ai.order.x,y:ai.order.y};}
+  else if(ai.hunt){
+    // hunting: drive to the last known position, then roam around it until the timer runs out
+    const h=ai.hunt;
+    if(h.px===undefined){h.px=h.x;h.py=h.y;}
+    if(hyp(h.px-t.x,h.py-t.y)<70){const a=rand(0,TAU),r=rand(90,260);h.px=clamp(h.x+Math.cos(a)*r,60,W-60);h.py=clamp(h.y+Math.sin(a)*r,60,H-60);}
+    goal={x:h.px,y:h.py};
+  }
   else if(tg&&tg.blind){goal={x:tg.x,y:tg.y};}
   else{
-    const wantCap=capBase&&(cfg.mode==='encounter'?c.line!=='sniper':(enemiesAlive<=2||timeLeft<110||(ai.role==='capper'&&battleTime>45)));
+    if(cfg.mode==='skirmish'&&battleTime>35&&!ai.hunt){const es=tanks.filter(o=>o.alive&&o.team!==t.team);if(es.length){const e=es[Math.floor(Math.random()*es.length)];ai.hunt={x:clamp(e.x+rand(-260,260),60,W-60),y:clamp(e.y+rand(-260,260),60,H-60),until:battleTime+rand(18,28)};}}
+    const wantCap=capBase&&(cfg.mode==='encounter'?c.line!=='sniper':cfg.mode==='assault'?c.line!=='sniper'&&(battleTime>50||enemiesAlive<=2||timeLeft<150||(ai.role==='capper'&&battleTime>20)):(enemiesAlive<=2||timeLeft<110||(ai.role==='capper'&&battleTime>45)));
     // each capper parks on its own spot inside the circle instead of everyone aiming at the centre
     if(wantCap&&c.line!=='sniper'){const a=t.id*2.39996,r=capBase.r*.38;goal={x:capBase.x+Math.cos(a)*r,y:capBase.y+Math.sin(a)*r};ai.capSpot=goal;}
     else{
-      const steps=c.line==='light'?[.42]:c.line==='sniper'?[.3]:[.36,.5,.62,.8];
+      const dfd=cfg.mode==='assault'&&t.team===cfg.def;
+      const steps=dfd?(c.line==='light'?[.26]:c.line==='sniper'?[.12]:[.16,.22,.28]):c.line==='light'?[.42]:c.line==='sniper'?[.3]:[.36,.5,.62,.8];
       const st=Math.min(ai.laneStep,steps.length-1);
       const lx=t.team===0?W*steps[st]:W*(1-steps[st]);
       if(c.line==='light'||c.line==='sniper'){
@@ -2475,6 +2539,11 @@ function update(dt){
   if(cfg.mode==='training')for(const t of tanks)if(t.dummy&&t.alive&&t.hidden){t.seenX=t.x;t.seenY=t.y;t.seenT=battleTime;}
   if(cfg.mode==='training')for(const t of tanks)if(t.dummy&&!t.alive){t.respawn=(t.respawn===undefined?4:t.respawn)-dt;
     if(t.respawn<=0){t.respawn=undefined;Object.assign(t,{alive:true,hp:t.maxHp,x:t.home.x,y:t.home.y,a:t.home.a,ta:t.home.a,spd:0,stun:0,stunBy:null,marker:0});t.mods={tracks:0,gun:0,engine:0,fire:0};fx({k:'float',x:t.x,y:t.y-34,text:'TARGET RESET',color:'#e2b540',size:11});}}
+  if(cfg.mode==='skirmish')for(const t of tanks){
+    if(t.prot>0)t.prot-=dt;
+    if(t.alive||t.respawn===undefined||mode!=='play')continue;
+    t.respawn-=dt;if(t.respawn<=0){t.respawn=undefined;skirmRespawn(t);}
+  }
   updateVisibility(dt);
   for(let i=rings.length-1;i>=0;i--){rings[i].life-=dt;if(rings[i].life<=0)rings.splice(i,1);}
   for(let i=pings.length-1;i>=0;i--){pings[i].life-=dt;if(pings[i].life<=0)pings.splice(i,1);}
@@ -2534,7 +2603,7 @@ function update(dt){
       const capt=tanks.filter(t=>t.alive&&t.team===team&&hyp(t.x-b.x,t.y-b.y)<b.r);
       const def=tanks.some(t=>t.alive&&t.team!==team&&hyp(t.x-b.x,t.y-b.y)<b.r);
       if(capt.length&&!def){
-        const rate=4*CAP_MUL*Math.min(3,capt.length)*dt,before=b.pts[team];
+        const rate=4*CAP_MUL*(cfg.mode==='assault'?1.5:1)*Math.min(3,capt.length)*dt,before=b.pts[team];
         b.pts[team]=Math.min(100,b.pts[team]+rate);
         for(const t of capt){t.capContrib+=rate/capt.length;t.capturing=true;t.st.capped+=rate/capt.length;}
         if(Math.floor(before/10)!==Math.floor(b.pts[team]/10))sfx('cap',.8);
@@ -2565,10 +2634,27 @@ function update(dt){
   // end
   if(mode==='play'&&cfg.mode!=='training'){
     const a=tanks.filter(t=>t.team===0&&t.alive).length,e=tanks.filter(t=>t.team===1&&t.alive).length;
-    if(e===0)endBattle(0,'wipe');
+    if(cfg.mode==='skirmish'){if(timeLeft<=0)endBattle(teamScore[0]>teamScore[1]?0:teamScore[1]>teamScore[0]?1:-1,'kills');}
+    else if(e===0)endBattle(0,'wipe');
     else if(a===0)endBattle(1,'wipe');
-    else if(timeLeft<=0)endBattle(-1,'time');
+    else if(timeLeft<=0)endBattle(cfg.mode==='assault'?cfg.def:-1,cfg.mode==='assault'?'hold':'time');
   }
+}
+// Skirmish: a destroyed tank comes back at its own team's edge of the map, full health and ammo,
+// on whichever spawn lane is furthest from the enemy, with 3 s of protection.
+function skirmRespawn(t){
+  const ys=[330,560,850,1140,1370],x0=t.team===0?200:W-200;
+  let best=null,bs=-1;
+  for(const y of ys)for(let k=0;k<4;k++){const x=x0+(t.team===0?1:-1)*k*40+rand(-15,15),yy=y+rand(-30,30);if(!spotFree(x,yy))continue;
+    let dn=1e9;for(const o of tanks)if(o.alive&&o!==t)dn=Math.min(dn,hyp(o.x-x,o.y-yy)*(o.team===t.team?3:1));
+    const sc=Math.min(dn,900)+rand(0,120);if(sc>bs){bs=sc;best={x,y:yy};}}
+  if(!best)best={x:x0,y:850};
+  const a=t.team===0?0:Math.PI;
+  Object.assign(t,{alive:true,hp:t.maxHp,x:best.x,y:best.y,prevX:best.x,prevY:best.y,a,ta:a,spd:0,vx:0,vy:0,pvx:0,pvy:0,stun:0,stunBy:null,marker:0,reloadT:1,salvo:null,
+    ammoCount:loadoutOf(t.cls),ammo:t.cls.arty?'HE':'AP',cons:{repair:0,ext:0,smoke:0},smokeLeft:2,bloom:1,prot:3,capturing:false});
+  t.mods={tracks:0,gun:0,engine:0,fire:0};
+  if(t.ai)Object.assign(t.ai,{target:null,path:null,hunt:null,order:null,retreatPt:null,laneStep:0,suspect:null,stuck:0,unstick:0,lastX:t.x,lastY:t.y,capSpot:null});
+  fx({k:'respawn',id:t.id,x:r1(t.x),y:r1(t.y),a:r3(a)});
 }
 function collideWorld(t){
     const r=t.cls.len*.46;
@@ -3036,6 +3122,18 @@ function drawHUD(){
       ctx.fillStyle='rgba(235,230,210,.12)';ctx.fillRect(L,cy+18,bwid,5);ctx.fillStyle=mine?PAL.ally.team:PAL.enemy.team;ctx.fillRect(L,cy+18,bwid*b.pts[team]/100,5);
       cy+=34;
     }
+  }
+  if(cfg.mode==='skirmish'||cfg.mode==='assault'){
+    const bw=Math.min(pw-16,260),me=player.team;
+    ctx.fillStyle='rgba(16,18,12,.78)';ctx.fillRect(L-8,cy,bw+16,24);ctx.font=FONT(700,11);ctx.textAlign='left';
+    if(cfg.mode==='skirmish'){
+      ctx.fillStyle=PAL.ally.team;ctx.fillText(String(teamScore[me]),L,cy+16);const w0=ctx.measureText(String(teamScore[me])).width;
+      ctx.fillStyle='rgba(235,230,210,.6)';ctx.fillText(' – ',L+w0,cy+16);const w1=ctx.measureText(' – ').width;
+      ctx.fillStyle=PAL.enemy.team;ctx.fillText(String(teamScore[1-me]),L+w0+w1,cy+16);
+      ctx.textAlign='right';ctx.fillStyle='rgba(235,230,210,.7)';ctx.fillText(`KILLS · FIRST TO ${skirmTarget()}`,L+bw,cy+16);
+    }else{const dfd=me===cfg.def;ctx.fillStyle=dfd?PAL.ally.team:'#e2b540';ctx.fillText(dfd?'DEFEND YOUR BASE UNTIL TIME RUNS OUT':'CAPTURE THE ENEMY BASE',L,cy+16);}
+    ctx.textAlign='left';cy+=28;
+    if(!player.alive&&cfg.mode==='skirmish'&&!$('deadbar').hidden){const d=player.respawn!==undefined?player.respawn:Math.max(0,SKIRM_RESPAWN-deadT);$('deadtxt').textContent=`Destroyed. Respawning in ${Math.max(1,Math.ceil(d))} s.`;}
   }
   // kill feed
   let fy=cy+16;ctx.font=FONT(600,12);ctx.textAlign='left';
@@ -3766,7 +3864,7 @@ function pauseGame(){
   if(mode!=='play')return;
   keys.clear();mouse.down=false;stickL.id=null;stickR.id=null;releaseTouchAim();
   const mp=NET.role!=='off';
-  document.getElementById('pauseInfo').textContent=mp?`Squad battle keeps running · ${M.name}`:`${M.name} · ${cfg.mode==='encounter'?'Encounter':'Standard'} · ${cfg.diff.name}`;
+  document.getElementById('pauseInfo').textContent=mp?`Squad battle keeps running · ${M.name}`:`${M.name} · ${MODE_NAME[cfg.mode]||'Standard'} · ${cfg.diff.name}`;
   $('restart').hidden=NET.role==='client';$('quit').textContent=mp?'Leave battle':'Back to garage';
   if(mp){NET.overlay=true;}else mode='pause';
   document.getElementById('pause').hidden=false;}
@@ -3908,7 +4006,7 @@ function renderCta(){
   if(NET.role==='host'){const n=NET.conns.size+1;$('ctaMode').textContent=`Squad ${NET.code} · ${NET.mpMode==='versus'?'Versus':'Co-op'}`;$('ctaSub').textContent=`${n} ${n===1?'player':'players'} · ${where}`;lab.textContent='Deploy squad';}
   else if(NET.role==='client'){const L=NET.lobby;$('ctaMode').textContent=`Squad ${NET.code}`;$('ctaSub').textContent=L?`${L.players.length} players · waiting for the host`:'Connecting…';dep.disabled=true;lab.textContent='Waiting';}
   else if(st.mode==='training'){$('ctaMode').textContent='Training ground';$('ctaSub').textContent=`${CLASSES[st.tank].name} · stationary targets that spot but never shoot · no rewards`;lab.textContent='Train';}
-  else{$('ctaMode').textContent=st.mode==='encounter'?'Encounter':'Standard battle';$('ctaSub').textContent=where;}
+  else{$('ctaMode').textContent=MODE_NAME[st.mode]||'Standard battle';$('ctaSub').textContent=({assault:'One side holds its base, the other must take it · ',skirmish:'Respawns every 8 s · first team to the kill target wins · '}[st.mode]||'')+where;}
 }
 function renderGarage(){
   ensureOwnedSelection();
@@ -3920,7 +4018,7 @@ function seg(id,name,opts,cur,onChange){
   const el=$(id);el.innerHTML=opts.map(([v,l])=>`<label><input type="radio" name="${name}" id="${name}-${v}" value="${v}" ${String(v)===String(cur)?'checked':''}><span>${l}</span></label>`).join('');
   el.querySelectorAll('input').forEach(i=>i.addEventListener('change',()=>{onChange(i.value);persist();renderGarage();}));
 }
-const MODE_OPTS=[['standard','Standard'],['encounter','Encounter'],['training','Training']];
+const MODE_OPTS=[['standard','Standard'],['encounter','Encounter'],['assault','Assault'],['skirmish','Skirmish'],['training','Training']];
 seg('segMode','mode',MODE_OPTS,SAVE.set.mode,v=>SAVE.set.mode=v);
 seg('segDiff','diff',[['recruit','Recruit'],['veteran','Veteran'],['ace','Ace']],SAVE.set.diff,v=>SAVE.set.diff=v);
 seg('segSize','size',[[5,'5 v 5'],[7,'7 v 7']],SAVE.set.size,v=>SAVE.set.size=+v);
@@ -4057,11 +4155,15 @@ function showEnd(){
   const r=result||{winner:-1,reason:''};
   const PT=player.team;
   const a=tanks.filter(t=>t.team===PT&&t.alive).length,e=tanks.filter(t=>t.team!==PT&&t.alive).length;
-  const res=r.left?'loss':r.reason==='host'?'draw':r.winner===PT?'win':r.winner===1-PT?'loss':(a>e?'win':e>a?'loss':'draw');
+  const res=r.left?'loss':r.reason==='host'?'draw':r.winner===PT?'win':r.winner===1-PT?'loss':cfg.mode==='skirmish'?'draw':(a>e?'win':e>a?'loss':'draw');
   const won=r.winner===PT;
   let sub=r.left?'You left the battle':r.reason==='cap'?(won?'Base captured':'Your base was captured'):r.reason==='wipe'?(won?'Enemy team destroyed':'Your team was destroyed'):r.reason==='host'?'The host left the battle':r.reason||'';
-  if(r.winner===-1&&!r.left&&r.reason!=='host')sub=`Time ran out with ${a} allies against ${e} enemies.${res==='draw'?'':' The side with more tanks left takes it.'}`;
-  else sub+=`. ${a} of ${cfg.size} allies and ${e} of ${cfg.size} enemies still running.`;
+  const ks=`${teamScore[PT]}–${teamScore[1-PT]}`,nA=tanks.filter(t=>t.team===PT).length,nE=tanks.length-nA;
+  if(!r.left&&r.reason==='hold')sub=won?`Base held until time ran out. ${a} of ${nA} defenders still running.`:`Time ran out: the defenders held their base. ${e} of ${nE} still running.`;
+  else if(!r.left&&r.reason==='score')sub=`${won?'Your team':'The enemy'} reached ${skirmTarget()} kills first · ${ks}.`;
+  else if(!r.left&&r.reason==='kills')sub=`Time ran out at ${ks} in kills.${res==='draw'?' Dead even.':''}`;
+  else if(r.winner===-1&&!r.left&&r.reason!=='host')sub=`Time ran out with ${a} allies against ${e} enemies.${res==='draw'?'':' The side with more tanks left takes it.'}`;
+  else sub+=`. ${a} of ${nA} allies and ${e} of ${nE} enemies still running.`;
   $('endTitle').textContent=res==='win'?'Victory':res==='loss'?'Defeat':'Draw';$('endTitle').className='result '+res;
   $('endSub').textContent=sub;
   $('endEyebrow').textContent=`Debrief · ${M.name} · ${player.cls.name} · ${player.alive?'Survived':'Destroyed'}`;
@@ -4114,7 +4216,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,scr:player?(()=>{const p=toScreen(player.x,player.y);return [Math.round(p.x),Math.round(p.y)];})():null,vh:innerHeight,lookK:cam.lookK,fix:cam.fix?[Math.round(cam.fix.x),Math.round(cam.fix.y)]:null,ascr:player&&player.aimX!==undefined?(()=>{const q=toScreen(player.aimX,player.aimY);return [Math.round(q.x),Math.round(q.y)];})():null,startT,timeLeft,th:trainHit?trainHit.lines:null,tscr:i=>{const t=tanks[i];const q=toScreen(t.x,t.y);return [Math.round(q.x),Math.round(q.y)];},rtt:NET.rtt||0,bt:battleTime,ts:timeScale,fr:(window.__frames||0),cam:[Math.round(cam.x),Math.round(cam.y),+cam.z.toFixed(3),+(cam.zt||0).toFixed(3),cam.dbg],pl:player?[Math.round(player.x),Math.round(player.y)]:null,tgt:R3.target?[Math.round(R3.target.x),Math.round(R3.target.y)]:null,incomingTest:(key='how3')=>{const e=tanks.find(t=>t.team!==player.team&&t.alive);e.cls=CLASSES[key];e.s=derive(e.cls,{});e.ammo='HE';e.ammoCount={HE:9};e.x=player.x+900;e.y=player.y;e.hidden=false;e.aimX=player.x;e.aimY=player.y;e.reloadT=0;startT=0;fire(e);return shells.filter(s=>s.arty&&s.team!==player.team).length;},boom:(dx=160,rk=0)=>{const p=player;runFx({k:'arty',rk,x:p.x+dx,y:p.y,R:80,dir:0,e:.6,sid:-1,stun:[],hits:[],best:'',total:0});},via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
+try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,scr:player?(()=>{const p=toScreen(player.x,player.y);return [Math.round(p.x),Math.round(p.y)];})():null,vh:innerHeight,lookK:cam.lookK,snapB:Math.round(NET.snapB||0),jit:Math.round(NET.jit||0),fix:cam.fix?[Math.round(cam.fix.x),Math.round(cam.fix.y)]:null,ascr:player&&player.aimX!==undefined?(()=>{const q=toScreen(player.aimX,player.aimY);return [Math.round(q.x),Math.round(q.y)];})():null,startT,timeLeft,th:trainHit?trainHit.lines:null,tscr:i=>{const t=tanks[i];const q=toScreen(t.x,t.y);return [Math.round(q.x),Math.round(q.y)];},rtt:NET.rtt||0,bt:battleTime,ts:timeScale,fr:(window.__frames||0),cam:[Math.round(cam.x),Math.round(cam.y),+cam.z.toFixed(3),+(cam.zt||0).toFixed(3),cam.dbg],pl:player?[Math.round(player.x),Math.round(player.y)]:null,tgt:R3.target?[Math.round(R3.target.x),Math.round(R3.target.y)]:null,incomingTest:(key='how3')=>{const e=tanks.find(t=>t.team!==player.team&&t.alive);e.cls=CLASSES[key];e.s=derive(e.cls,{});e.ammo='HE';e.ammoCount={HE:9};e.x=player.x+900;e.y=player.y;e.hidden=false;e.aimX=player.x;e.aimY=player.y;e.reloadT=0;startT=0;fire(e);return shells.filter(s=>s.arty&&s.team!==player.team).length;},boom:(dx=160,rk=0)=>{const p=player;runFx({k:'arty',rk,x:p.x+dx,y:p.y,R:80,dir:0,e:.6,sid:-1,stun:[],hits:[],best:'',total:0});},via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
