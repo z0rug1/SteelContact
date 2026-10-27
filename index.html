@@ -376,6 +376,9 @@ fieldset.slab{display:block}
 .reward .xpchip{font-weight:700;color:#bfe3ff;font-variant-numeric:tabular-nums}
 .reward .research{font-size:11px;color:var(--muted)}
 @media (max-height:460px){.node{padding:5px 7px;gap:1px}.node b{font-size:14px}.tree{gap:4px 12px}}
+
+.fsbtn{appearance:none;font:inherit;font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--brass);background:rgba(226,181,64,.1);border:1px solid rgba(226,181,64,.45);padding:7px 12px;cursor:pointer;margin-left:auto;margin-right:10px;align-self:center}
+.fsbtn:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 </style>
 
 </head><body>
@@ -391,8 +394,9 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.4</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.5</div></div>
     </div>
+    <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
   </header>
   <nav class="hg-rail" role="tablist" aria-label="Menu" id="rail">
@@ -477,6 +481,7 @@ fieldset.slab{display:block}
       <button class="btn" id="resume">Resume</button>
       <button class="btn ghost" id="restart">Restart</button>
       <button class="btn ghost" id="quit">Back to garage</button>
+      <button class="btn ghost" id="fsPause" type="button" hidden>Full screen</button>
     </div>
   </div>
 </div>
@@ -1520,14 +1525,21 @@ function lockLandscape(){try{const o=screen.orientation;if(o&&o.lock&&document.f
 const FS={declined:false,failed:false,was:false};
 function fsSupported(){try{const el=document.documentElement;return location.protocol!=='file:'&&!!el&&!!(el.requestFullscreen||el.webkitRequestFullscreen)&&matchMedia('(pointer:coarse)').matches&&!matchMedia('(display-mode: fullscreen)').matches;}catch(_){return false;}}
 function goFullscreen(){
-  if(FS.failed||!fsSupported()||document.fullscreenElement||document.webkitFullscreenElement)return;
+  if(!fsSupported()||document.fullscreenElement||document.webkitFullscreenElement)return;
   const el=document.documentElement,rq=el.requestFullscreen||el.webkitRequestFullscreen;
-  try{const pr=rq.call(el,{navigationUI:'hide'});if(pr&&pr.then)pr.then(()=>lockLandscape()).catch(()=>{FS.failed=true;});}catch(_){FS.failed=true;}
+  // a refused request is not remembered: the next tap or button press simply tries again
+  try{const pr=rq.call(el,{navigationUI:'hide'});if(pr&&pr.then)pr.then(()=>lockLandscape()).catch(()=>{});}catch(_){}
 }
-document.addEventListener('fullscreenchange',()=>{const on=!!document.fullscreenElement;if(FS.was&&!on)FS.declined=true;FS.was=on;});
-try{screen.orientation.addEventListener('change',()=>{FS.declined=false;});}catch(_){addEventListener('orientationchange',()=>{FS.declined=false;});}
+function syncFsButtons(){const on=!!(document.fullscreenElement||document.webkitFullscreenElement),sup=fsSupported();
+  for(const id of['fsHangar','fsPause']){const b=document.getElementById(id);if(b)b.hidden=!sup||on;}}
+const onFsChange=()=>{const on=!!(document.fullscreenElement||document.webkitFullscreenElement);if(FS.was&&!on)FS.declined=true;FS.was=on;syncFsButtons();};
+document.addEventListener('fullscreenchange',onFsChange);document.addEventListener('webkitfullscreenchange',onFsChange);
+const onRotate=()=>{FS.declined=false;setTimeout(()=>{if(innerWidth>innerHeight)goFullscreen();},250);};
+try{screen.orientation.addEventListener('change',onRotate);}catch(_){addEventListener('orientationchange',onRotate);}
 document.addEventListener('pointerdown',()=>{if(!FS.declined&&innerWidth>innerHeight)goFullscreen();},true);
-{const b=document.getElementById('fsBtn');if(b){b.hidden=!fsSupported();b.addEventListener('click',()=>{FS.declined=false;goFullscreen();});}}
+for(const id of['fsBtn','fsHangar','fsPause']){const b=document.getElementById(id);if(b)b.addEventListener('click',e=>{e.stopPropagation();FS.declined=false;goFullscreen();});}
+{const b=document.getElementById('fsBtn');if(b)b.hidden=!fsSupported();}
+syncFsButtons();
 // ================= input =================
 const keys=new Set();let mouse={x:0,y:0,down:false,active:false,right:false},lastInput='kb';
 const stickL={id:null,ox:0,oy:0,x:0,y:0},stickR={id:null,ox:0,oy:0,x:0,y:0,moved:false};
