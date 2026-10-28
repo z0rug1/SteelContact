@@ -207,6 +207,14 @@ fieldset.slab{display:block}
 .chips span{font-size:11px;font-weight:600;border:1px solid var(--line);padding:2px 7px;font-variant-numeric:tabular-nums}
 .chips span.apcr{border-color:rgba(170,220,255,.5);color:#bfe3ff}
 .chips span.he{border-color:rgba(255,170,90,.5);color:#ffc18a}
+.rackrow{display:grid;grid-template-columns:52px 1fr 30px 30px 30px;align-items:center;gap:6px;margin-top:5px}
+.rackrow .rk{font-size:11px;font-weight:700;border:1px solid var(--line);padding:2px 0;text-align:center}
+.rackrow .rk.apcr{border-color:rgba(170,220,255,.5);color:#bfe3ff}.rackrow .rk.he{border-color:rgba(255,170,90,.5);color:#ffc18a}
+.rackrow .rd{font-size:11px;color:var(--muted);line-height:1.25;min-width:0}
+.rackrow .rn{text-align:center;font-variant-numeric:tabular-nums;font-size:14px}
+.rb{appearance:none;font:inherit;font-weight:700;font-size:16px;line-height:1;width:30px;height:28px;border:1px solid var(--line);background:rgba(235,230,210,.06);color:var(--ink,#ebe6d2);cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+.rb:disabled{opacity:.3;cursor:default}
+.rdef{appearance:none;font:inherit;font-size:10px;font-weight:700;letter-spacing:.06em;float:right;border:1px solid var(--line);background:none;color:var(--muted);padding:2px 8px;cursor:pointer;text-transform:uppercase}
 .uprow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:6px 0;border-top:1px solid rgba(235,230,210,.07)}
 .uprow:first-of-type{border-top:0}
 .uprow .t{font-size:14px;font-weight:700;display:flex;gap:8px;align-items:center}
@@ -394,7 +402,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.18</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.19</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -571,6 +579,15 @@ const TIER_XP=[0,0,2500,6000],TIER_PRICE=[0,0,12000,30000],ROMAN=['','I','II','I
 const vehicleFor=(line,tier)=>(BRANCH_ROOT[line]&&tier===1)?BRANCH_ROOT[line]:CLASS_KEYS.find(k=>(CLASSES[k].branch||CLASSES[k].line)===line&&CLASSES[k].tier===tier)||line;
 const prevOf=c=>c.tier>1?CLASSES[vehicleFor(c.branch||c.line,c.tier-1)]:null;
 const loadoutOf=c=>c.rocket?{HE:10}:{...LOADOUT[c.line]};
+const rackTypes=c=>c.rocket?['HE']:c.arty?['HE','AP']:['AP','APCR','HE'];
+const rackCap=c=>Object.values(loadoutOf(c)).reduce((a,b)=>a+b,0);
+// The player's own mix for this vehicle (kept with its upgrades); anything invalid falls back to the stock rack.
+function loadoutFor(c,up){
+  const L=up&&up.load;if(!L||typeof L!=='object'||c.rocket)return loadoutOf(c);
+  const out={};let sum=0;for(const k of rackTypes(c)){const n=Math.max(0,Math.floor(+L[k]||0));out[k]=n;sum+=n;}
+  return sum>0&&sum<=rackCap(c)?out:loadoutOf(c);
+}
+const firstAmmo=(c,lo)=>{const ks=rackTypes(c),pref=c.arty?'HE':'AP';return lo[pref]>0?pref:ks.find(k=>lo[k]>0)||pref;};
 for(const c of Object.values(CLASSES)){c.shellSpeed=c.shellSpeed||1150;c.maxRange=c.maxRange||1150;c.zoom=c.zoom||1;}
 const AMMO={
   AP:{key:'AP',name:'Armor-piercing',pen:1,dmg:1,spd:1,norm:5,fall:.06},
@@ -953,7 +970,7 @@ function makeTank(team,key,x,y,name,isPlayer,up){
   const t={team,cls:c,s,x,y,a:team===0?0:Math.PI,ta:team===0?0:Math.PI,spd:0,vx:0,vy:0,turnRate:0,turretRate:0,hp:s.hp,maxHp:s.hp,
     reloadT:rand(.5,1.5),reloadMax:s.reload,alive:true,name,isPlayer,marker:0,bloom:1,recoil:0,trackPhase:0,
     mods:{tracks:0,gun:0,engine:0,fire:0},stun:0,stunMax:0,stunBy:null,fireImmune:0,smokeT:0,inBush:false,hidden:false,bushShots:0,bushShotT:0,
-    ammoCount:loadoutOf(c),ammo:c.arty?'HE':'AP',cons:{repair:0,ext:0,smoke:0},smokeLeft:2,capContrib:0,capturing:false,
+    ammoCount:loadoutFor(c,up),ammo:firstAmmo(c,loadoutFor(c,up)),cons:{repair:0,ext:0,smoke:0},smokeLeft:2,capContrib:0,capturing:false,
     dmgDealt:0,kills:0,st:newStats(),human:null,remote:null,spotters:[],decalT:0,ramCD:0,prevX:x,prevY:y,seenByEnemy:false,hiddenFor:0,spotByPlayer:false,
     ai:null,up};
   if(!isPlayer)t.ai={target:null,retarget:0,side:Math.random()<.5?-1:1,err:0,fireDelay:-1,stuck:0,lastX:x,lastY:y,unstick:0,peek:rand(0,6),suspect:null,
@@ -1972,7 +1989,8 @@ function hostBroadcastLobby(){
   broadcast({t:'lobby',code:NET.code,players:ps.map(p=>({name:p.name,tank:p.tank,team:p.team,host:!!p.host,id:p.id})),mode:NET.mpMode,set:{mode:SAVE.set.mode,map:SAVE.set.map,diff:SAVE.set.diff,size:SAVE.set.size}});
   renderSquad();renderCta();
 }
-function sanitizeUp(u){u=u||{};const f=v=>clamp(Math.floor(+v||0),0,3);return {gun:f(u.gun),armor:f(u.armor),engine:f(u.engine)};}
+function sanitizeUp(u){u=u||{};const f=v=>clamp(Math.floor(+v||0),0,3),o={gun:f(u.gun),armor:f(u.armor),engine:f(u.engine)};
+  if(u.load&&typeof u.load==='object'){o.load={};for(const k of['AP','APCR','HE'])o.load[k]=clamp(Math.floor(+u.load[k]||0),0,99);}return o;}
 function hostOnData(conn,d){
   const c=NET.conns.get(conn.peer);if(!c||!d||typeof d!=='object')return;
   c.rx=performance.now();
@@ -2651,7 +2669,7 @@ function skirmRespawn(t){
   if(!best)best={x:x0,y:850};
   const a=t.team===0?0:Math.PI;
   Object.assign(t,{alive:true,hp:t.maxHp,x:best.x,y:best.y,prevX:best.x,prevY:best.y,a,ta:a,spd:0,vx:0,vy:0,pvx:0,pvy:0,stun:0,stunBy:null,marker:0,reloadT:1,salvo:null,
-    ammoCount:loadoutOf(t.cls),ammo:t.cls.arty?'HE':'AP',cons:{repair:0,ext:0,smoke:0},smokeLeft:2,bloom:1,prot:3,capturing:false});
+    ammoCount:loadoutFor(t.cls,t.up),ammo:firstAmmo(t.cls,loadoutFor(t.cls,t.up)),cons:{repair:0,ext:0,smoke:0},smokeLeft:2,bloom:1,prot:3,capturing:false});
   t.mods={tracks:0,gun:0,engine:0,fire:0};
   if(t.ai)Object.assign(t.ai,{target:null,path:null,hunt:null,order:null,retreatPt:null,laneStep:0,suspect:null,stuck:0,unstick:0,lastX:t.x,lastY:t.y,capSpot:null});
   fx({k:'respawn',id:t.id,x:r1(t.x),y:r1(t.y),a:r3(a)});
@@ -4182,6 +4200,35 @@ function renderClassList(){
     box.appendChild(b);
   });
 }
+// Ammo rack: owned vehicles can change the mix of shell types within the rack's capacity (tap, or hold to repeat).
+const AMMO_NOTE={AP:'Standard round',APCR:'+25% pen, faster shell, loses pen with range',HE:'Low pen, big damage on weak armor, splash on a near miss'};
+const ARTY_NOTE={HE:'Wide splash, stuns',AP:'+25% damage on a direct hit, small splash'};
+function rackSlab(key,c,up,lo){
+  const cap=rackCap(c),cur=owned(key)?loadoutFor(c,up):lo,sum=Object.values(cur).reduce((a,b)=>a+b,0);
+  const cls=k=>k==='APCR'?'apcr':k==='HE'&&!c.arty?'he':'';
+  if(!owned(key)||c.rocket)return `<div class="slab"><div><div class="k">Ammo rack</div><div class="chips" style="margin-top:3px">${Object.entries(cur).map(([k,n])=>`<span class="${cls(k)}">${n} × ${k}</span>`).join('')}</div>
+      <div class="figs" style="margin-top:5px"><span>${c.rocket?'One rocket type · ':owned(key)?'':'Buy the vehicle to change its rack · '}Repair kit · Extinguisher · 2 Smoke</span></div></div>${ICONS.ammo}</div>`;
+  const rows=rackTypes(c).map(k=>`<div class="rackrow"><span class="rk ${cls(k)}">${k}</span><span class="rd">${(c.arty?ARTY_NOTE:AMMO_NOTE)[k]}</span>
+      <button type="button" class="rb" data-k="${k}" data-d="-1" ${cur[k]<=0?'disabled':''} aria-label="One less ${k}">−</button><b class="rn">${cur[k]}</b><button type="button" class="rb" data-k="${k}" data-d="1" ${sum>=cap?'disabled':''} aria-label="One more ${k}">+</button></div>`).join('');
+  return `<div class="slab wide"><div class="k">Ammo rack <span style="letter-spacing:0;text-transform:none;font-weight:600;color:${sum<cap?'#ffc18a':'var(--muted)'}">· ${sum} / ${cap} rounds${sum<cap?` · ${cap-sum} empty`:''}</span>
+      <button type="button" class="rdef" id="rackDef">Stock mix</button></div>${rows}
+      <div class="figs" style="margin-top:5px"><span>Also carried: Repair kit · Extinguisher · 2 Smoke</span></div></div>`;
+}
+function bindRack(key,c,up){
+  const box=$('slabs');
+  const step=(k,d)=>{const cur=loadoutFor(c,up),sum=Object.values(cur).reduce((a,b)=>a+b,0);
+    if(d<0&&cur[k]<=0)return false;if(d>0&&sum>=rackCap(c))return false;
+    cur[k]+=d;if(Object.values(cur).every(n=>n<=0))return false;up.load=cur;persist();renderSlabs();sfx('click',.4);return true;};
+  box.querySelectorAll('.rb').forEach(b=>{
+    let t=null,iv=null;const k=b.dataset.k,d=+b.dataset.d;
+    const stop=()=>{clearTimeout(t);clearInterval(iv);t=iv=null;};
+    b.addEventListener('pointerdown',e=>{e.preventDefault();if(!step(k,d))return;t=setTimeout(()=>{iv=setInterval(()=>{if(!step(k,d))stop();},70);},380);
+      // the button is rebuilt on every step, so listen for the release on the window
+      const up_=()=>{stop();removeEventListener('pointerup',up_);removeEventListener('pointercancel',up_);};addEventListener('pointerup',up_);addEventListener('pointercancel',up_);});
+    b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();step(k,d);const f=box.querySelector(`.rb[data-k="${k}"][data-d="${d}"]`);if(f)f.focus();}});
+  });
+  const df=$('rackDef');if(df)df.addEventListener('click',()=>{delete up.load;persist();renderSlabs();sfx('click',.5);});
+}
 function renderSlabs(){
   const key=SAVE.set.tank,c=CLASSES[key],up=upOf(key),s=derive(c,up),b0=derive(c,{});
   const vol=c.rocket?c.rocket.n*.2:1,dpm=s.dmg*vol*60/s.reload,dpm0=b0.dmg*vol*60/b0.reload,lo=loadoutOf(c);
@@ -4196,11 +4243,11 @@ function renderSlabs(){
       ${meter(dpm,dpm0,maxes.dpm)}<div class="figs" style="margin-top:4px"><span>Reload <b>${s.reload.toFixed(1)} s</b></span>${c.rocket?`<span>Salvo <b>${c.rocket.n}</b> over ${(c.rocket.n*c.rocket.gap).toFixed(1)} s</span><span>Blast <b>${mtr(c.splash)} m</b> each</span>`:`<span>DPM <b>${fmt(dpm)}</b></span>`}<span>Range <b>${fmt(mtr(c.maxRange))} m</b></span></div></div>${ICONS.gun}</div>
     <div class="slab"><div><div class="k">Mobility</div><div class="v"><em>${kmh(s.speed)}</em> km/h</div>
       ${meter(s.speed,b0.speed,maxes.speed)}<div class="figs" style="margin-top:4px"><span>Hull turn <b>${r(s.rot*57)}°/s</b></span><span>Traverse <b>${r(s.trot*57)}°/s</b></span><span>View <b>${mtr(c.view)} m</b></span>${c.casemate?'<span><b>30°</b> gun arc</span>':''}</div></div>${ICONS.mob}</div>
-    <div class="slab"><div><div class="k">Ammo rack</div><div class="chips" style="margin-top:3px">${Object.entries(lo).map(([k,n])=>`<span class="${k==='APCR'?'apcr':k==='HE'&&!c.arty?'he':''}">${n} × ${k}</span>`).join('')}</div>
-      <div class="figs" style="margin-top:5px"><span>Repair kit · Extinguisher · 2 Smoke</span></div></div>${ICONS.ammo}</div>
+    ${rackSlab(key,c,up,lo)}
     ${owned(key)?`<div class="slab wide"><div class="k">Upgrades <span style="letter-spacing:0;text-transform:none;font-weight:600;color:var(--muted)">· shown on your vehicle</span></div>${upRows}</div>`
       :`<div class="slab wide"><div class="k">Test drive</div><div class="d" style="margin-top:4px">Stock vehicle on the training ground. Buy it in the Tech tree to take it into battle and upgrade it.</div></div>`}`;
   for(const k of Object.keys(UPGRADES)){const el=$('up-'+k);if(!el)continue;el.addEventListener('click',()=>{const lv=up[k];if(lv>=3)return;const cost=UP_COST[lv];if(SAVE.credits<cost)return;SAVE.credits-=cost;up[k]=lv+1;persist();sfx('repair',.8);renderGarage();const f=$('up-'+k);if(f)f.focus();});}
+  if(owned(key)&&!c.rocket)bindRack(key,c,up);
   $('stType').textContent=`Tier ${ROMAN[c.tier]} · ${c.type} · ${c.role}`;$('stName').textContent=c.name;
 }
 let mapThumbs=null;
@@ -4451,7 +4498,7 @@ fontsReady.then(()=>{const keep=M;M=genMap('ruinberg',7);idleTerrain=renderTerra
 initBay();showGL();
 renderGarage();
 // test hook, only with ?debug in the URL
-try{if(new URLSearchParams(location.search).has('debug')){window.__gfx={tp:(x,y)=>{player.x=x;player.y=y;cam.x=x;cam.y=y;},ruin:()=>{const o=obstacles.find(o=>o.ruin3);return o?[o.x+o.w/2,o.y+o.h+60]:null;},house:()=>{const o=obstacles.find(o=>o.k==='rect'&&!o.ruin3&&Math.min(o.w,o.h)>=45);return o?[o.x+o.w/2,o.y+o.h+70]:null;},river:()=>M.bridges&&M.bridges[0]?[M.bridges[0].x,M.bridges[0].y+90]:null,kill:()=>{const t=tanks.filter(t=>t.alive&&t.team!==player.team).sort((a,b)=>hyp(a.x-player.x,a.y-player.y)-hyp(b.x-player.x,b.y-player.y))[0];if(t){t.x=player.x+90;t.y=player.y-30;kill(t,player);}},fire:()=>{player.mods.fire=20;}};}}catch(_){}
+try{if(new URLSearchParams(location.search).has('debug')){window.__gfx={me:()=>({ac:player.ammoCount,am:player.ammo}),tp:(x,y)=>{player.x=x;player.y=y;cam.x=x;cam.y=y;},ruin:()=>{const o=obstacles.find(o=>o.ruin3);return o?[o.x+o.w/2,o.y+o.h+60]:null;},house:()=>{const o=obstacles.find(o=>o.k==='rect'&&!o.ruin3&&Math.min(o.w,o.h)>=45);return o?[o.x+o.w/2,o.y+o.h+70]:null;},river:()=>M.bridges&&M.bridges[0]?[M.bridges[0].x,M.bridges[0].y+90]:null,kill:()=>{const t=tanks.filter(t=>t.alive&&t.team!==player.team).sort((a,b)=>hyp(a.x-player.x,a.y-player.y)-hyp(b.x-player.x,b.y-player.y))[0];if(t){t.x=player.x+90;t.y=player.y-30;kill(t,player);}},fire:()=>{player.mods.fire=20;}};}}catch(_){}
 try{if(new URLSearchParams(location.search).has('debug'))window.__sc={state:()=>({mode,role:NET.role,code:NET.code,status:NET.status,me:player?player.id:null,shots:stats&&stats.shots,dmg:stats&&stats.dmg,scr:player?(()=>{const p=toScreen(player.x,player.y);return [Math.round(p.x),Math.round(p.y)];})():null,vh:innerHeight,lookK:cam.lookK,snapB:Math.round(NET.snapB||0),jit:Math.round(NET.jit||0),fix:cam.fix?[Math.round(cam.fix.x),Math.round(cam.fix.y)]:null,ascr:player&&player.aimX!==undefined?(()=>{const q=toScreen(player.aimX,player.aimY);return [Math.round(q.x),Math.round(q.y)];})():null,startT,timeLeft,th:trainHit?trainHit.lines:null,tscr:i=>{const t=tanks[i];const q=toScreen(t.x,t.y);return [Math.round(q.x),Math.round(q.y)];},rtt:NET.rtt||0,bt:battleTime,ts:timeScale,fr:(window.__frames||0),cam:[Math.round(cam.x),Math.round(cam.y),+cam.z.toFixed(3),+(cam.zt||0).toFixed(3),cam.dbg],pl:player?[Math.round(player.x),Math.round(player.y)]:null,tgt:R3.target?[Math.round(R3.target.x),Math.round(R3.target.y)]:null,incomingTest:(key='how3')=>{const e=tanks.find(t=>t.team!==player.team&&t.alive);e.cls=CLASSES[key];e.s=derive(e.cls,{});e.ammo='HE';e.ammoCount={HE:9};e.x=player.x+900;e.y=player.y;e.hidden=false;e.aimX=player.x;e.aimY=player.y;e.reloadT=0;startT=0;fire(e);return shells.filter(s=>s.arty&&s.team!==player.team).length;},boom:(dx=160,rk=0)=>{const p=player;runFx({k:'arty',rk,x:p.x+dx,y:p.y,R:80,dir:0,e:.6,sid:-1,stun:[],hits:[],best:'',total:0});},via:NET.via||null,cs:NET.cs||0,rejoining:!!NET.rejoin,ghost:!!NET.ghost,conns:[...NET.conns.values()].map(c=>({relay:!!c.conn.relay,pending:!!c.pending,tank:c.tankRef?c.tankRef.id:null})),drop:()=>{const c=NET.conn;if(!c)return 'none';if(c.relay){c.mq.close();c.kill();}else c.close();return 'dropped';},endTest:(worst)=>{if(worst){Object.assign(stats,{dmg:12345,kills:6,assist:2345,stunAssist:1156,stunned:15,blocked:4321,splash:2521,splashHits:13,shots:150,hits:99,pens:88,capped:60,defended:44,ram:300});for(const t of tanks)t.dmgDealt=Math.max(t.dmgDealt,50);}result={winner:player.team,reason:'wipe'};mode='over';showEnd();const e=document.getElementById('end');return {sh:e.scrollHeight,ch:e.clientHeight,sheet:e.querySelector('.sheet').scrollHeight};},ice:()=>{try{const pc=new RTCPeerConnection({iceServers:iceServers()});pc.close();return 'ok '+iceServers().map(x=>x.urls.length).join('+');}catch(e){return 'ERR '+e.message;}},tanks:tanks.map(t=>[t.name,t.team,Math.round(t.x),Math.round(t.y),t.alive,t.human,Math.round(t.hp)]),shells:shells.length,scope,splash:stats&&stats.splash,pens:stats&&stats.pens,hits:stats&&stats.hits,aim:player?[Math.round(player.x),Math.round(player.y),+player.a.toFixed(3),+player.ta.toFixed(3),Math.round(player.aimX),Math.round(player.aimY)]:null})};}catch(e){}
 requestAnimationFrame(frame);
 })();
