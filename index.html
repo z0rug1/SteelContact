@@ -394,7 +394,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.17</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.18</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -3285,9 +3285,9 @@ function drawPlayerPanel(B){
   ctx.fillText(player.reloadT<=0?'LOADED':player.reloadT.toFixed(1)+'s',px+pw2-10,py+46);
   // button row
   // ammo and consumables: a compact row in the bottom-right corner
-  const keysA=ammoKeys(player),bh=32,gapB=3,groupGap=7,count=keysA.length+4;
+  const keysA=ammoKeys(player),bh=32,gapB=3,groupGap=7,count=keysA.length+3;
   const bw=Math.min(38,(Math.min(vw*.42,320)-gapB*(count-2)-groupGap*2)/count);
-  const total=bw*count+gapB*(count-3)+groupGap*2;
+  const total=bw*count+gapB*(count-2)+groupGap;
   let bx=vw-inset.r-14-total;const by=B-bh;
   const btn=(label,sub,state,act,hot)=>{
     const col=state==='sel'?'#e2b540':state==='ready'?'rgba(235,230,210,.85)':'rgba(235,230,210,.3)';
@@ -3314,8 +3314,7 @@ function drawPlayerPanel(B){
   const cd=k=>player.cons[k]>0?Math.ceil(player.cons[k])+'s':'';
   btn('REP',cd('repair')||'kit',player.cons.repair>0?'off':'ready',()=>doCons('repair'),broken&&player.cons.repair<=0);bx+=bw+gapB;
   btn('EXT',cd('ext')||'kit',player.cons.ext>0?'off':'ready',()=>doCons('ext'),player.mods.fire>0&&player.cons.ext<=0);bx+=bw+gapB;
-  btn('SMK',cd('smoke')||`×${player.smokeLeft}`,player.cons.smoke>0||player.smokeLeft<=0?'off':'ready',()=>doCons('smoke'));bx+=bw+groupGap;
-  {const on=scope||mouse.right;btn('SCOPE',on?'on':'off',on?'sel':'ready',()=>{scope=!scope;});}
+  btn('SMK',cd('smoke')||`×${player.smokeLeft}`,player.cons.smoke>0||player.smokeLeft<=0?'off':'ready',()=>doCons('smoke'));bx+=bw+gapB;
   // concealment / sixth sense
   const chipY=py-24,chipX=px;
   if(sixthT>0){
