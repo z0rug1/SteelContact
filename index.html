@@ -207,6 +207,7 @@ fieldset.slab{display:block}
 .chips span{font-size:11px;font-weight:600;border:1px solid var(--line);padding:2px 7px;font-variant-numeric:tabular-nums}
 .chips span.apcr{border-color:rgba(170,220,255,.5);color:#bfe3ff}
 .chips span.he{border-color:rgba(255,170,90,.5);color:#ffc18a}
+.locked{opacity:.45;pointer-events:none}
 .rackrow{display:grid;grid-template-columns:52px 1fr 30px 30px 30px;align-items:center;gap:6px;margin-top:5px}
 .rackrow .rk{font-size:11px;font-weight:700;border:1px solid var(--line);padding:2px 0;text-align:center}
 .rackrow .rk.apcr{border-color:rgba(170,220,255,.5);color:#bfe3ff}.rackrow .rk.he{border-color:rgba(255,170,90,.5);color:#ffc18a}
@@ -402,7 +403,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.19</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.20</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -433,6 +434,7 @@ fieldset.slab{display:block}
       <div class="maps" id="mapTiles"></div>
       <p class="note" id="mapNote"></p>
       <div class="opts">
+        <p class="note" id="hostPicks" hidden>You are in a squad: the host picks the map, mode, enemy skill and team size.</p>
         <div class="slab wide" role="group" aria-label="Mode"><div class="k">Mode</div><div class="seg" id="segMode"></div></div>
         <div class="slab wide" role="group" aria-label="Enemy skill"><div class="k">Enemy skill</div><div class="seg" id="segDiff"></div></div>
         <div class="slab wide" role="group" aria-label="Team size"><div class="k">Team size</div><div class="seg" id="segSize"></div></div>
@@ -1777,6 +1779,11 @@ function netReset(status){
   NET.role='off';NET.peer=null;NET.conn=null;NET.conns=new Map();NET.events=[];NET.lobby=null;NET.code='';NET.myId=null;NET.status=status||'';NET.overlay=false;
 }
 function netLeave(status){netReset(status);renderSquad();renderCta();}
+// A friend who joined a room stays tied to it (NET.squad = room code) until they leave it themselves or the room closes.
+// While tied, nothing can start a solo battle: a dropped connection only offers Reconnect.
+const squadLocked=()=>NET.role==='client'||(NET.role==='off'&&!!NET.squad);
+function squadForget(){NET.squad=null;}
+function squadReconnect(){if(NET.squad&&NET.role==='off'){NET.status='Reconnecting…';joinRoom(NET.squad);}}
 // ---- backup relay ----
 // When the two devices can't open a direct WebRTC link (and the TURN relays fail too), game messages go through
 // public MQTT brokers over secure WebSockets on ordinary HTTPS ports. Slower than a direct link, but it gets through
@@ -1886,6 +1893,7 @@ setInterval(()=>{
   }else if(NET.role==='client'&&NET.conn&&NET.conn.open){
     if(NET.conn.relay){NET.conn.ka();if(now-NET.conn.seen>9000)NET.conn.kill();}
     else if((mode==='play'||mode==='pause')&&now-(NET.rx||now)>7000){const c=NET.conn;NET.conn=null;try{c.close();}catch(_){}NET.role='client';clientLost();}
+    else if(mode==='menu'&&NET.lobby&&now-(NET.rx||now)>12000){const c=NET.conn;NET.conn=null;try{c.close();}catch(_){}clientLost();}
     else try{NET.conn.send({t:'ka'});}catch(_){}
     if(!NET.pingT||now-NET.pingT>2000){NET.pingT=now;try{NET.conn.send({t:'pg',c:now});}catch(_){}}
   }
@@ -1932,7 +1940,7 @@ function joinRoom(code,opts={}){
   NET.role='client';NET.peer=peer;NET.code=code;NET.step='server';NET.rx=performance.now();
   show('Connecting…');if(!quiet)renderCta();
   let settled=false,relayTried=false,roomMissing=false;
-  const giveUp=msg=>{if(settled||NET.role!=='client'||NET.code!==code)return;settled=true;clearTimeout(fail);if(opts.onFail){netReset();opts.onFail(msg);}else netLeave(msg);};
+  const giveUp=msg=>{if(settled||NET.role!=='client'||NET.code!==code)return;settled=true;clearTimeout(fail);if(opts.onFail){netReset();opts.onFail(msg);}else{if(roomMissing&&NET.squad===code)squadForget();netLeave(msg);}};
   const failMsg=()=>roomMissing?'No room with that code. Check it with the host.'
     :NET.step==='server'?"Couldn't reach the matchmaking server or the backup relay. Check this device's internet connection."
     :NET.step==='room'?"Reached the server, but the host didn't answer. Make sure the host still has the room open and their screen is on."
@@ -2052,11 +2060,11 @@ function hostStart(){
 function clientOnData(d){
   if(!d||typeof d!=='object')return;
   if(d.t==='po'){const r=performance.now()-(+d.c||0);if(r>=0&&r<10000)NET.rtt=NET.rtt?NET.rtt*.7+r*.3:r;return;}
-  if(d.t==='lobby'){NET.lobby=d;NET.mpMode=d.mode;if(mode==='menu'){renderSquad();renderCta();}return;}
-  if(d.t==='hostleft'){NET.rejoin=null;clientGiveUp('');return;}
+  if(d.t==='lobby'){NET.lobby=d;NET.mpMode=d.mode;NET.squad=NET.code;if(mode==='menu'){renderSquad();renderCta();}return;}
+  if(d.t==='hostleft'){NET.rejoin=null;squadForget();clientGiveUp('');return;}
   if(d.t==='full'&&NET.rejoin){const R=NET.rejoin;netReset();NET.rejoin=R;NET.ghost=true;
     if(d.why==='battle'){NET.rejoin=null;clientGiveUp('The host no longer has your tank.');}else setTimeout(()=>{if(NET.rejoin===R)clientRejoin(R.code);},1500);return;}
-  if(d.t==='full'){netLeave(d.why==='battle'?'That squad is in a battle. Try again when it ends.':d.why==='closed'?'The host closed the room.':'That room is full.');return;}
+  if(d.t==='full'){if(d.why==='closed'||!NET.squad||NET.squad!==NET.code)squadForget();netLeave(d.why==='battle'?'That squad is in a battle. Try again when it ends.':d.why==='closed'?'The host closed the room.':'That room is full.');return;}
   if(d.t==='start'){
     initAudio();menu.hidden=true;end.hidden=true;pause.hidden=true;$('deadbar').hidden=true;
     newBattle({cfg:d.cfg,roster:d.roster,me:d.me});last=performance.now();
@@ -2090,7 +2098,7 @@ function clientRejoin(code){
   R.n++;setBanner('Connection lost',`Reconnecting… ${left} s left`,'#ff8a6e');
   joinRoom(code,{onFail:msg=>{
     if(!NET.rejoin)return;NET.ghost=true;
-    if(/^No room/.test(msg)){R.gone=(R.gone||0)+1;if(R.gone>=2){NET.rejoin=null;clientGiveUp('The host closed the room.');return;}}
+    if(/^No room/.test(msg)){R.gone=(R.gone||0)+1;if(R.gone>=2){NET.rejoin=null;squadForget();clientGiveUp('The host closed the room.');return;}}
     setTimeout(()=>{if(NET.rejoin===R&&(mode==='play'||mode==='pause'))clientRejoin(code);},1500);
   }});
 }
@@ -2246,7 +2254,12 @@ function renderSquad(){
   const nameField=`<label class="namefield"><span class="k">Callsign</span><input id="mpName" maxlength="16" autocomplete="off" value="${esc(myName())}"></label>`;
   const status=NET.status?`<p class="note" role="status">${esc(NET.status)}</p>`:'';
   let html='';
-  if(NET.role==='off'){
+  if(NET.role==='off'&&NET.squad){
+    html=`<div class="slab wide"><div class="k">Room</div>
+        <div class="coderow"><span class="code">${esc(NET.squad)}</span><button type="button" class="upbtn" id="mpRecon">Reconnect</button><button type="button" class="ghostbtn danger" id="mpLeave">Leave squad</button></div>
+        ${status}<p class="note">You are still in this squad, so solo battles are off until you leave it.</p></div>
+      <div class="slab wide">${nameField}</div>`;
+  }else if(NET.role==='off'){
     html=`<div class="slab wide">${nameField}</div>
       <div class="opts">
         <div class="slab wide"><div class="k">Host a squad</div><p class="note" style="margin:2px 0 8px">Open a room and send friends the code. Map, mode and skill come from the Battle tab.</p><button type="button" class="upbtn" id="mpHost">Host room</button></div>
@@ -2261,18 +2274,25 @@ function renderSquad(){
     html=`<div class="slab wide"><div class="k">${isHost?'Your room code':'Room'}</div>
         <div class="coderow"><span class="code">${esc(NET.code||'·····')}</span>${isHost?`<button type="button" class="ghostbtn" id="mpCopy">Copy code</button>`:''}<button type="button" class="ghostbtn danger" id="mpLeave">${isHost?'Close room':'Leave'}</button></div>
         ${status}</div>
+      <div class="slab wide">${nameField}</div>
       <div class="slab wide"><div class="k">Mode</div>${modeSeg}</div>
       <div class="slab wide"><div class="k">Squad · ${players.length} ${players.length===1?'player':'players'}</div>
         <div class="plist">${players.map(p=>`<div class="prow"><span class="tm t${p.team}">${NET.mpMode==='versus'?(p.team===0?'West':'East'):'Squad'}</span><b>${esc(p.name)}</b><span>${CLASSES[p.tank]?CLASSES[p.tank].name:''}</span>${p.host?'<i>host</i>':''}</div>`).join('')||'<p class="note">Waiting for players…</p>'}</div>
-        ${isHost?'<p class="note">Press Deploy when everyone is in. Friends pick their tanks in their own Garage.</p>':''}</div>`;
+        ${isHost?'<p class="note">Press Deploy when everyone is in. Friends pick their tanks in their own Garage.</p>':'<p class="note">Pick your tank in the Garage. Only the host can start the battle and choose map, mode and bots.</p>'}</div>`;
   }
+  const old=$('mpName'),typing=old&&document.activeElement===old?{v:old.value,a:old.selectionStart,b:old.selectionEnd}:null;
   box.innerHTML=html;
-  const nm=$('mpName');if(nm)nm.addEventListener('change',()=>{SAVE.set.name=nm.value.replace(/[<>&"]/g,'').trim().slice(0,16)||'Commander';persist();sendHello();});
+  const nm=$('mpName');
+  if(nm&&typing){nm.value=typing.v;nm.focus();try{nm.setSelectionRange(typing.a,typing.b);}catch(_){}}
+  if(nm){const save=()=>{const v=nm.value.replace(/[<>&"]/g,'').trim().slice(0,16)||'Commander';if(v===myName())return;SAVE.set.name=v;persist();
+      if(NET.role==='client')sendHello();else if(NET.role==='host'&&mode==='menu'){hostBroadcastLobby();renderSquad();}};
+    nm.addEventListener('change',save);nm.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save();nm.blur();}});}
   const h=$('mpHost');if(h)h.addEventListener('click',()=>{hostRoom();});
   const j=$('mpJoin');if(j)j.addEventListener('click',()=>joinRoom($('mpCode').value));
   const ci=$('mpCode');if(ci)ci.addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom(ci.value);});
   const cp=$('mpCopy');if(cp)cp.addEventListener('click',()=>{const done=()=>{cp.textContent='Copied';setTimeout(()=>{if(cp.isConnected)cp.textContent='Copy code';},1500);};try{navigator.clipboard.writeText(NET.code).then(done,()=>{});}catch(_){}});
-  const lv=$('mpLeave');if(lv)lv.addEventListener('click',()=>{if(NET.role==='host')broadcast({t:'full',why:'closed'});netLeave('');});
+  const lv=$('mpLeave');if(lv)lv.addEventListener('click',()=>{if(NET.role==='host')broadcast({t:'full',why:'closed'});squadForget();netLeave('');});
+  const rc=$('mpRecon');if(rc)rc.addEventListener('click',squadReconnect);
   box.querySelectorAll('input[name="mpm"]').forEach(i=>i.addEventListener('change',()=>{NET.mpMode=i.value;hostBroadcastLobby();}));
 }
 
@@ -4117,7 +4137,7 @@ function pauseGame(){
   keys.clear();mouse.down=false;stickL.id=null;stickR.id=null;releaseTouchAim();
   const mp=NET.role!=='off';
   document.getElementById('pauseInfo').textContent=mp?`Squad battle keeps running · ${M.name}`:`${M.name} · ${MODE_NAME[cfg.mode]||'Standard'} · ${cfg.diff.name}`;
-  $('restart').hidden=NET.role==='client';$('quit').textContent=mp?'Leave battle':'Back to garage';
+  $('restart').hidden=squadLocked();$('quit').textContent=mp?'Leave battle':'Back to garage';
   if(mp){NET.overlay=true;}else mode='pause';
   document.getElementById('pause').hidden=false;}
 function resumeGame(){if(NET.overlay){NET.overlay=false;document.getElementById('pause').hidden=true;return;}if(mode!=='pause')return;document.getElementById('pause').hidden=true;mode='play';last=performance.now();}
@@ -4183,7 +4203,7 @@ function renderTree(){
       el.addEventListener('click',e=>{if(e.target.closest('.try'))return;act();});
       el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act();}});
       const tr=el.querySelector('.try');
-      if(tr)tr.addEventListener('click',()=>{sfx('click',.6);if(NET.role!=='off')return;deploy(k);});
+      if(tr)tr.addEventListener('click',()=>{sfx('click',.6);if(NET.role!=='off'||NET.squad)return;deploy(k);});
       box.appendChild(el);
     }
   }
@@ -4280,12 +4300,18 @@ function renderRecord(){
     <div class="figs" style="margin-top:6px"><span><b>${c.battles}</b> battles</span><span><b>${c.battles?Math.round(c.wins/c.battles*100):0}%</b> won</span><span><b>${fmt(c.xp)}</b> XP</span></div></div></div></div>
     <div class="slab wide"><div class="k">Service record by vehicle</div><div class="wrap" style="overflow-x:auto"><table><thead><tr><th>Vehicle</th><th class="n">Battles</th><th class="n">Won</th><th class="n">Avg dmg</th><th class="n">Best</th><th class="n">Kills</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
-function renderCta(){
+function applySquadLock(){
+  // in someone else's room the host picks map, mode, skill and size
+  const lk=squadLocked();for(const id of['segMode','segDiff','segSize','mapTiles']){const el=$(id);if(!el)continue;el.classList.toggle('locked',lk);el.querySelectorAll('input,button').forEach(i=>i.disabled=lk);}
+   const n=$('hostPicks');if(n)n.hidden=!lk;
+}
+function renderCta(){applySquadLock();
   const st=SAVE.set,dep=$('deploy'),lab=dep.querySelector('span');
   const where=`${st.map==='random'?'Random map':MAPS[st.map].name} · ${DIFF[st.diff].name} bots · ${st.size} v ${st.size}`;
   dep.disabled=false;lab.textContent='Deploy';
   if(NET.role==='host'){const n=NET.conns.size+1;$('ctaMode').textContent=`Squad ${NET.code} · ${NET.mpMode==='versus'?'Versus':'Co-op'}`;$('ctaSub').textContent=`${n} ${n===1?'player':'players'} · ${where}`;lab.textContent='Deploy squad';}
-  else if(NET.role==='client'){const L=NET.lobby;$('ctaMode').textContent=`Squad ${NET.code}`;$('ctaSub').textContent=L?`${L.players.length} players · waiting for the host`:'Connecting…';dep.disabled=true;lab.textContent='Waiting';}
+  else if(NET.role==='client'){const L=NET.lobby;$('ctaMode').textContent=`Squad ${NET.code}`;$('ctaSub').textContent=L?`${L.players.length} players · only the host can start`:'Connecting…';dep.disabled=true;lab.textContent='Waiting';}
+  else if(NET.squad){$('ctaMode').textContent=`Squad ${NET.squad} · disconnected`;$('ctaSub').textContent='Reconnect to the room, or leave it in the Squad tab to play solo';lab.textContent='Reconnect';}
   else if(st.mode==='training'){$('ctaMode').textContent='Training ground';$('ctaSub').textContent=`${CLASSES[st.tank].name} · stationary targets that spot but never shoot · no rewards`;lab.textContent='Train';}
   else{$('ctaMode').textContent=MODE_NAME[st.mode]||'Standard battle';$('ctaSub').textContent=({assault:'One side holds its base, the other must take it · ',skirmish:'Respawns every 8 s · first team to the kill target wins · '}[st.mode]||'')+where;}
 }
@@ -4418,17 +4444,17 @@ function renderBay(now){
 
 const menu=$('menu'),end=$('end'),pause=$('pause');
 let lastTrial=null;
-function deploy(trial){lockLandscape();if(NET.role==='host'){hostStart();return;}if(NET.role==='client')return;lastTrial=typeof trial==='string'?trial:null;initAudio();menu.hidden=true;end.hidden=true;pause.hidden=true;newBattle(lastTrial?{trial:lastTrial}:{});last=performance.now();}
+function deploy(trial){lockLandscape();if(NET.role==='host'){hostStart();return;}if(squadLocked()){squadReconnect();return;}lastTrial=typeof trial==='string'?trial:null;initAudio();menu.hidden=true;end.hidden=true;pause.hidden=true;newBattle(lastTrial?{trial:lastTrial}:{});last=performance.now();}
 // Restart / Redeploy repeat the same kind of battle (a test drive stays a test drive)
 const redeploy=()=>deploy(lastTrial);
 $('deploy').addEventListener('click',deploy);
-$('again').addEventListener('click',()=>{if(NET.role==='client'){toGarage();return;}redeploy();});
-$('restart').addEventListener('click',redeploy);
+$('again').addEventListener('click',()=>{if(squadLocked()){toGarage();return;}redeploy();});
+$('restart').addEventListener('click',()=>{if(squadLocked())return;redeploy();});
 $('resume').addEventListener('click',resumeGame);
 function toGarage(){NET.rejoin=null;end.hidden=true;pause.hidden=true;menu.hidden=false;mode='menu';NET.overlay=false;NET.ghost=false;$('deadbar').hidden=true;showGL();renderGarage();}
 $('toMenu').addEventListener('click',toGarage);
-$('quit').addEventListener('click',()=>{NET.rejoin=null;if(NET.role==='host')broadcast({t:'hostleft'});if(NET.role!=='off'&&mode!=='menu'){netLeave(NET.role==='host'?'You closed the room.':'You left the squad.');}toGarage();});
-$('leave').addEventListener('click',()=>{if(mode==='play'){mode='over';result={winner:1-player.team,reason:'left',left:true};if(NET.role==='client')netLeave();showEnd();}});
+$('quit').addEventListener('click',()=>{NET.rejoin=null;if(NET.role==='client'||NET.squad)squadForget();if(NET.role==='host')broadcast({t:'hostleft'});if(NET.role!=='off'&&mode!=='menu'){netLeave(NET.role==='host'?'You closed the room.':'You left the squad.');}toGarage();});
+$('leave').addEventListener('click',()=>{if(mode==='play'){mode='over';result={winner:1-player.team,reason:'left',left:true};if(NET.role==='client'||NET.squad){squadForget();netLeave();}showEnd();}});
 
 // ================= debrief =================
 function showEnd(){
@@ -4485,7 +4511,7 @@ function showEnd(){
     return `<div><div class="tcap ${team===PT?'a':'e'}">${team===PT?'Your team':'Enemy team'}</div><div class="wrap"><table><thead><tr><th>Tank</th><th>Class</th><th class="n">Damage</th><th class="n">Kills</th></tr></thead><tbody>${
       list.map(t=>`<tr class="${t.isPlayer?'me':''} ${t.alive?'':'dead'}"><td>${t.alive?'':'✕ '}${t.name}</td><td>${t.cls.name}</td><td class="n">${fmt(t.dmgDealt)}</td><td class="n">${t.kills}</td></tr>`).join('')}</tbody></table></div></div>`;};
   $('endBoard').innerHTML=table(PT)+table(1-PT);
-  $('again').textContent=NET.role==='client'?'Back to lobby':NET.role==='host'?'Redeploy squad':'Redeploy';
+  $('again').textContent=squadLocked()?'Back to lobby':NET.role==='host'?'Redeploy squad':'Redeploy';
   $('toMenu').hidden=NET.role==='client';
   end.hidden=false;end.scrollTop=0;
 }
