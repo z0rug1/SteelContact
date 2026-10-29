@@ -403,7 +403,7 @@ fieldset.slab{display:block}
         <path d="M13 29h22l-2.6 5H15.6z" fill="#e2b540"/><rect x="16" y="22" width="14" height="6" rx="1.5" fill="#e2b540"/><rect x="28" y="23.6" width="10" height="2.6" fill="#e2b540"/>
         <path d="M17 12l7 5 7-5" fill="none" stroke="#e2b540" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.20</div></div>
+      <div><div class="b-title">Steel Contact</div><div class="b-sub">Armored division · 3.21</div></div>
     </div>
     <button class="fsbtn" id="fsHangar" type="button" hidden aria-label="Full screen">⛶ Full screen</button>
     <div class="badge" id="badge"></div>
@@ -454,7 +454,7 @@ fieldset.slab{display:block}
         <li><b>Firing</b>Firing reveals you for 4 s to every enemy within 1.5× its view range unless a rock or building is in between. Bushes don't hide a muzzle flash. Exception: if you're unspotted and inside a bush, firing only leaves a sound ring. Repeat shots tighten it. Being hit also shows your HP marker for 4 s.</li>
         <li><b>Artillery splash</b>A shell lands at an angle and throws its blast forward along its flight. Close shots fly flat and throw a long cone ahead of the impact. Long shots are lobbed high, come down steeply and splash almost evenly all round. Flight time runs from 0.1 s point blank to 2 s at 225 m. Shells hit rocks, walls and buildings in their path: low, close shots are stopped by cover, high lobs clear it. The reticle marks a blocked shot with a red X. Splash damage falls off evenly from full at the impact to zero at the edge of that shape. Only a direct hit counts as a penetration in your battle stats. Splash is listed separately. The SPG reticle shows the exact shape: solid for damage, dashed for stun.</li>
         <li><b>Rocket artillery</b>The Tempest and Cyclone (rocket branch off the Howler, tiers II and III) fire a salvo of 12 or 16 rockets that scatter over a wide circle around your aim point, then reload for 20 s (Tempest) or 25 s (Cyclone). Each rocket has its own blast and stuns like a full shell. Rockets fly twice as long as a howitzer shell (up to 4 s), so their landing zones give enemies time to drive out. The artillery line continues from the Howler with heavier howitzers (Thunder II, Colossus III); the rockets are a side branch off the Howler. A salvo usually lands several hits on anything inside the circle and softens every tank near it.</li>
-        <li><b>Tech tree</b>Every line has three tiers. Battles earn XP for the vehicle you drove; enough XP researches the next vehicle in that line (2,500 XP for tier II, 6,000 for tier III), and credits buy it (12,000 and 30,000). Bots in your battles come from your tier, sometimes one above or below.</li>
+        <li><b>Tech tree</b>Every line has three tiers. Battles earn XP for the vehicle you drove; enough XP researches the next vehicle in that line (2,500 XP for tier II, 6,000 for tier III), and credits buy it (15,000 and 30,000). Upgrades cost 1,200 / 2,800 / 5,500 on tier I, double that on tier II and triple on tier III. Bots in your battles come from your tier, sometimes one above or below.</li>
         <li><b>Training ground</b>Pick Training as the battle mode to practise with your own vehicles, or press Test drive on any vehicle in the Tech tree to try it once, stock, without buying it. Stationary targets of every class never move or shoot but still spot you. Each hit you land is explained on screen: plate, angle, effective armor, your pen at that range and the damage. Ammo is unlimited, destroyed targets come back after 4 s, and nothing is earned.</li>
         <li><b>Incoming fire</b>The moment an enemy SPG fires, the landing zone of its shell shows on the ground in red, and the inner area fills up as impact gets closer. Drive out of it. A whistle plays when it is aimed within 45 m of you.</li>
         <li><b>Stun</b>Artillery shells stun every enemy inside a zone of the same shape, 1.75× larger, for up to 12 s: slower drive, turn, traverse and reload. Damage your team deals to a tank you stunned counts as your stun assist.</li>
@@ -539,6 +539,8 @@ const SPEED_MUL=.85,BATTLE_TIME=420,CAP_MUL=.8;
 // start-of-battle countdown: nobody drives or fires (turrets can aim) and the clock waits until it reaches zero
 // rocket warheads: share of their damage dealt as blast at the impact point (falls off to the blast edge)
 let ROCKET_SPLASH=1;
+// howitzer splash: share of the shell's damage at the edge of the hit, falling off linearly to the blast rim
+let HOW_SPLASH=.85;
 // rockets fly twice as long as a howitzer shell over the same distance, so there is time to leave the zone
 const ROCKET_FLIGHT=2;
 const COUNTDOWN=5;let startT=0,goT=0;
@@ -555,20 +557,20 @@ const CLASSES={
   medium:{key:'medium',line:'medium',tier:1,view:600,name:'Halberd',type:'Medium',role:'Brawler',blurb:'All-rounder. Enough pen for most fronts, enough speed to take the flank that opens.',hp:1400,speed:112,rot:1.8,trot:1.9,armor:{f:95,s:55,r:38},pen:196,dmg:250,reload:4.0,len:36,wid:22,range:380,acc:.024,bw:4.2,tr:.38,mass:1.5},
   heavy:{key:'heavy',line:'heavy',tier:1,view:470,name:'Bastion',type:'Heavy',role:'Breaker',blurb:'Angle the front plate and soak shells. Slow, big gun, long reload. Wins every ram.',hp:1950,speed:76,rot:1.15,trot:1.2,armor:{f:165,s:85,r:50},pen:245,dmg:400,reload:7.2,len:42,wid:26,range:280,acc:.02,bw:5.6,tr:.42,mass:2.3},
   sniper:{key:'sniper',line:'sniper',tier:1,view:600,name:'Lancet',type:'Sniper',role:'Overwatch',blurb:'Casemate tank destroyer. Precise long gun in a 30° arc. Sit behind a bush line and wait.',hp:1100,speed:95,rot:1.6,trot:1.4,armor:{f:120,s:40,r:30},pen:285,dmg:360,reload:6.0,len:40,wid:22,range:900,acc:.006,bw:4.4,tr:.4,casemate:.26,shellSpeed:1750,maxRange:1700,disp:.002,bloomK:.038,zoom:.76,mass:1.4},
-  spg:{key:'spg',line:'spg',tier:1,view:430,name:'Howler',type:'SPG',role:'Artillery',blurb:'Lobs shells over cover onto anything your team spots. Huge hits and splash, paper hull.',hp:700,speed:88,rot:1.5,trot:.9,armor:{f:30,s:20,r:15},pen:90,dmg:620,reload:11,len:36,wid:22,range:1100,acc:0,bw:6.2,tr:.44,arty:true,maxRange:1500,splash:80,zoom:.6,mass:1.1},
+  spg:{key:'spg',line:'spg',tier:1,view:430,name:'Howler',type:'SPG',role:'Artillery',blurb:'Lobs shells over cover onto anything your team spots. Huge hits and splash, paper hull.',hp:700,speed:88,rot:1.5,trot:.9,armor:{f:30,s:20,r:15},pen:90,dmg:620,reload:11,len:36,wid:22,range:1100,acc:0,bw:6.2,tr:.44,arty:true,maxRange:1500,splash:96,zoom:.6,mass:1.1},
   // ---- tier II ----
   light2:{key:'light2',line:'light',tier:2,view:800,name:'Harrier',type:'Light',role:'Scout',blurb:'Faster, tougher scout with a sharper gun. Still lives or dies by its speed.',hp:1100,speed:175,rot:2.7,trot:3,armor:{f:55,s:35,r:24},pen:185,dmg:200,reload:2.3,len:31,wid:20,range:480,acc:.028,bw:3.4,tr:.36,mass:1.1},
   medium2:{key:'medium2',line:'medium',tier:2,view:620,name:'Partisan',type:'Medium',role:'Brawler',blurb:'Thicker front, faster traverse. Leads the push and finishes what heavies start.',hp:1600,speed:115,rot:1.85,trot:2,armor:{f:110,s:65,r:45},pen:215,dmg:280,reload:4.0,len:37,wid:23,range:390,acc:.022,bw:4.5,tr:.38,mass:1.6},
   heavy2:{key:'heavy2',line:'heavy',tier:2,view:480,name:'Rampart',type:'Heavy',role:'Breaker',blurb:'A slab of steel with a bigger gun. Angle it and most mediums cannot touch you.',hp:2250,speed:72,rot:1.1,trot:1.15,armor:{f:190,s:100,r:60},pen:265,dmg:460,reload:7.8,len:44,wid:27,range:290,acc:.019,bw:6,tr:.42,mass:2.5},
   sniper2:{key:'sniper2',line:'sniper',tier:2,view:620,name:'Harpoon',type:'Sniper',role:'Overwatch',blurb:'Longer gun, thicker casemate. One shot from a bush line takes half a medium.',hp:1250,speed:92,rot:1.55,trot:1.35,armor:{f:140,s:50,r:35},pen:320,dmg:420,reload:6.6,len:42,wid:23,range:950,acc:.005,bw:4.8,tr:.4,casemate:.3,shellSpeed:1800,maxRange:1750,disp:.0018,bloomK:.036,zoom:.74,mass:1.5},
   spg2:{key:'spg2',line:'spg',branch:'rkt',tier:2,view:440,name:'Tempest',type:'Rocket SPG',role:'Barrage',blurb:'Ripples 12 rockets across a wide area, then reloads for 20 s. Saturate a bush line or a capture circle.',hp:780,speed:94,rot:1.6,trot:1,armor:{f:28,s:18,r:12},pen:60,dmg:210,reload:20,len:38,wid:23,range:1050,acc:0,bw:6,tr:.44,arty:true,rocket:{n:12,gap:.11,scatter:78},maxRange:1400,splash:62,zoom:.6,mass:1.2},
-  how2:{key:'how2',line:'spg',tier:2,view:440,name:'Thunder',type:'SPG',role:'Artillery',blurb:'Heavier howitzer: one big, accurate shell. Picks off a single tank where rockets blanket an area.',hp:780,speed:90,rot:1.5,trot:.95,armor:{f:34,s:22,r:16},pen:100,dmg:850,reload:13,len:38,wid:23,range:1150,acc:0,bw:6.8,tr:.44,arty:true,maxRange:1600,splash:88,zoom:.58,mass:1.2},
+  how2:{key:'how2',line:'spg',tier:2,view:440,name:'Thunder',type:'SPG',role:'Artillery',blurb:'Heavier howitzer: one big, accurate shell. Picks off a single tank where rockets blanket an area.',hp:780,speed:90,rot:1.5,trot:.95,armor:{f:34,s:22,r:16},pen:100,dmg:850,reload:13,len:38,wid:23,range:1150,acc:0,bw:6.8,tr:.44,arty:true,maxRange:1600,splash:106,zoom:.58,mass:1.2},
   // ---- tier III ----
   light3:{key:'light3',line:'light',tier:3,view:840,name:'Gyrfalcon',type:'Light',role:'Scout',blurb:'The best eyes on the field and a gun that punishes anyone who turns their side.',hp:1250,speed:185,rot:2.8,trot:3.1,armor:{f:62,s:40,r:28},pen:210,dmg:230,reload:2.2,len:32,wid:20,range:490,acc:.026,bw:3.6,tr:.36,mass:1.15},
   medium3:{key:'medium3',line:'medium',tier:3,view:640,name:'Vanguard',type:'Medium',role:'Brawler',blurb:'Fast-firing all-rounder with a front that bounces its own tier. Wins flanks.',hp:1800,speed:118,rot:1.9,trot:2.1,armor:{f:125,s:75,r:50},pen:235,dmg:310,reload:3.9,len:38,wid:24,range:400,acc:.02,bw:4.8,tr:.38,mass:1.7},
   heavy3:{key:'heavy3',line:'heavy',tier:3,view:490,name:'Monolith',type:'Heavy',role:'Breaker',blurb:'Slowest thing on tracks, hardest thing to kill. Its shell deletes light tanks.',hp:2600,speed:68,rot:1.05,trot:1.1,armor:{f:220,s:115,r:70},pen:290,dmg:520,reload:8.4,len:46,wid:28,range:300,acc:.018,bw:6.4,tr:.42,mass:2.8},
   sniper3:{key:'sniper3',line:'sniper',tier:3,view:640,name:'Longbow',type:'Sniper',role:'Overwatch',blurb:'Pierces any front at any range. Slow to reload, slow to turn, deadly from cover.',hp:1400,speed:90,rot:1.5,trot:1.3,armor:{f:160,s:60,r:40},pen:360,dmg:480,reload:7.2,len:44,wid:24,range:1000,acc:.004,bw:5.2,tr:.4,casemate:.3,shellSpeed:1900,maxRange:1800,disp:.0016,bloomK:.034,zoom:.72,mass:1.6},
-  how3:{key:'how3',line:'spg',tier:3,view:450,name:'Colossus',type:'SPG',role:'Artillery',blurb:'Siege howitzer. A direct hit takes a third off a heavy; the splash alone wrecks light tanks.',hp:860,speed:88,rot:1.45,trot:.9,armor:{f:36,s:24,r:18},pen:110,dmg:1100,reload:14,len:40,wid:24,range:1200,acc:0,bw:7.4,tr:.44,arty:true,maxRange:1700,splash:96,zoom:.56,mass:1.35},
+  how3:{key:'how3',line:'spg',tier:3,view:450,name:'Colossus',type:'SPG',role:'Artillery',blurb:'Siege howitzer. A direct hit takes a third off a heavy; the splash alone wrecks light tanks.',hp:860,speed:88,rot:1.45,trot:.9,armor:{f:36,s:24,r:18},pen:110,dmg:1100,reload:14,len:40,wid:24,range:1200,acc:0,bw:7.4,tr:.44,arty:true,maxRange:1700,splash:116,zoom:.56,mass:1.35},
   spg3:{key:'spg3',line:'spg',branch:'rkt',tier:3,view:450,name:'Cyclone',type:'Rocket SPG',role:'Barrage',blurb:'16 heavier rockets per salvo over a bigger area. Nothing sits still in a cap circle for long.',hp:850,speed:96,rot:1.6,trot:1,armor:{f:30,s:20,r:14},pen:60,dmg:225,reload:25,len:40,wid:24,range:1100,acc:0,bw:6.5,tr:.44,arty:true,rocket:{n:16,gap:.09,scatter:80},maxRange:1500,splash:66,zoom:.58,mass:1.3},
 };
 const CLASS_KEYS=Object.keys(CLASSES);
@@ -577,7 +579,7 @@ const CLASS_KEYS=Object.keys(CLASSES);
 const LINES=[['light','Light tanks'],['medium','Medium tanks'],['heavy','Heavy tanks'],['sniper','Tank destroyers'],['spg','Artillery'],['rkt','Rocket artillery']];
 const BRANCH_ROOT={rkt:'spg'};
 // indexed by the tier of the vehicle being researched / bought
-const TIER_XP=[0,0,2500,6000],TIER_PRICE=[0,0,12000,30000],ROMAN=['','I','II','III'];
+const TIER_XP=[0,0,2500,6000],TIER_PRICE=[0,0,15000,30000],ROMAN=['','I','II','III'];
 const vehicleFor=(line,tier)=>(BRANCH_ROOT[line]&&tier===1)?BRANCH_ROOT[line]:CLASS_KEYS.find(k=>(CLASSES[k].branch||CLASSES[k].line)===line&&CLASSES[k].tier===tier)||line;
 const prevOf=c=>c.tier>1?CLASSES[vehicleFor(c.branch||c.line,c.tier-1)]:null;
 const loadoutOf=c=>c.rocket?{HE:10}:{...LOADOUT[c.line]};
@@ -604,6 +606,8 @@ const UPGRADES={
   engine:{name:'Engine',desc:'+6% speed and hull turn, +5% traverse per level'},
 };
 const UP_COST=[1200,2800,5500];
+// upgrades scale linearly with the vehicle's tier: tier II pays double, tier III triple
+const upCost=(c,lv)=>UP_COST[lv]*(c.tier||1);
 const DIFF={
   recruit:{name:'Recruit',acc:2.2,react:[.5,1.1],bloom:.5,ups:0,wait:2,smart:false,cr:.8},
   veteran:{name:'Veteran',acc:1.2,react:[.25,.7],bloom:.4,ups:1,wait:1,smart:true,cr:1},
@@ -1372,7 +1376,7 @@ function artyImpact(s){
       if(Math.random()<(s.rocket?.15:.4)){const k=['tracks','gun','engine','fire'][Math.floor(Math.random()*4)];if(k!=='fire'||t.fireImmune<=0){t.mods[k]={tracks:4,gun:6,engine:8,fire:5}[k];crit={tracks:'Tracks',gun:'Gun breech',engine:'Engine',fire:'Fire'}[k];}}
     }else{
       if(n>=1)continue;
-      const f=1-n;dmg=Math.round(s.dmg*(s.rocket?ROCKET_SPLASH:.55)*s.splashK*f*Math.max(0,1-t.s.armor.s/(s.rocket?520:400)));
+      const f=1-n;dmg=Math.round(s.dmg*(s.rocket?ROCKET_SPLASH:HOW_SPLASH)*s.splashK*f*Math.max(0,1-t.s.armor.s/(s.rocket?520:650)));
       if(f>.5&&Math.random()<.3){t.mods.tracks=4;crit='Tracks';}
     }
     if(dmg<=0)continue;
@@ -2710,6 +2714,8 @@ function collideWorld(t){
 // Visual-only per-frame work, shared by the host and friends' screens.
 function presentTank(t,dt){
   if(!t.alive){t.smokeT-=dt;if(t.smokeT<=0){t.smokeT=rand(.15,.35);parts.push({x:t.x+rand(-6,6),y:t.y+rand(-6,6),vx:rand(-10,10)+8,vy:rand(-10,10)-6,life:rand(1.5,3),max:3,size:rand(10,20),c:'smoke'});}return;}
+  // a tank you can't see leaves no marks on your screen: no tracks, flames or spray to give it away
+  if(!seen(t))return;
   if(t.mods.fire>0&&Math.random()<dt*14)parts.push({x:t.x+rand(-8,8),y:t.y+rand(-8,8),vx:rand(-15,15),vy:rand(-15,15),life:rand(.3,.7),max:.7,size:rand(5,10),c:'fireball'});
   if(Math.abs(t.spd)>12){
     t.decalT-=dt;
@@ -2729,7 +2735,7 @@ function presentStep(dt){
         // wrecks keep burning for a while: a smoke column, then thinning smoke
         if(age<35&&Math.random()<dt*(age<12?6:2.5))parts.push({x:t.x+rand(-5,5),y:t.y+rand(-5,5),vx:rand(-5,5)+4,vy:rand(-5,5)-2,life:rand(2.6,4.2),max:4.2,size:rand(10,18)*(age<12?1:.75),c:'smoke'});
         if(age<12&&Math.random()<dt*5)parts.push({x:t.x+rand(-t.cls.len*.3,t.cls.len*.3),y:t.y+rand(-6,6),vx:rand(-6,6),vy:rand(-6,6),life:rand(.3,.6),max:.6,size:rand(3,6),c:'fireball',dim:.4});
-      }else if(t.alive&&Math.abs(t.spd)>9&&M&&M.river&&groundH(t.x,t.y)<0&&Math.random()<dt*Math.min(30,Math.abs(t.spd)*.4)){
+      }else if(t.alive&&seen(t)&&Math.abs(t.spd)>9&&M&&M.river&&groundH(t.x,t.y)<0&&Math.random()<dt*Math.min(30,Math.abs(t.spd)*.4)){
         // fording: spray thrown up at the bow and along the tracks
         const c=Math.cos(t.a),sn=Math.sin(t.a),f=Math.sign(t.spd),side=rand(-1,1)*t.cls.wid*.5,fw=rand(-.2,.55)*t.cls.len*f;
         parts.push({x:t.x+c*fw-sn*side,y:t.y+sn*fw+c*side,vx:-sn*side*rand(1,3)+c*f*rand(10,40),vy:c*side*rand(1,3)+sn*f*rand(10,40),life:rand(.5,.9),max:.9,size:rand(3,6),c:'splash',h:1,vh:rand(25,70),g:160});
@@ -4253,7 +4259,7 @@ function renderSlabs(){
   const key=SAVE.set.tank,c=CLASSES[key],up=upOf(key),s=derive(c,up),b0=derive(c,{});
   const vol=c.rocket?c.rocket.n*.2:1,dpm=s.dmg*vol*60/s.reload,dpm0=b0.dmg*vol*60/b0.reload,lo=loadoutOf(c);
   const r=n=>Math.round(n);
-  const upRows=Object.entries(UPGRADES).map(([k,u])=>{const lv=up[k],cost=UP_COST[lv],can=lv<3&&SAVE.credits>=cost;
+  const upRows=Object.entries(UPGRADES).map(([k,u])=>{const lv=up[k],cost=lv<3?upCost(c,lv):0,can=lv<3&&SAVE.credits>=cost;
     return `<div class="uprow"><div><div class="t">${u.name}<span class="minipips">${[0,1,2].map(i=>`<i class="${lv>i?'on':''}"></i>`).join('')}</span></div><div class="d">${u.desc}</div></div>
       <button class="upbtn" type="button" id="up-${k}" ${can?'':'disabled'}>${lv>=3?'Maxed':`${fmt(cost)} cr`}</button></div>`;}).join('');
   $('slabs').innerHTML=`
@@ -4266,7 +4272,7 @@ function renderSlabs(){
     ${rackSlab(key,c,up,lo)}
     ${owned(key)?`<div class="slab wide"><div class="k">Upgrades <span style="letter-spacing:0;text-transform:none;font-weight:600;color:var(--muted)">· shown on your vehicle</span></div>${upRows}</div>`
       :`<div class="slab wide"><div class="k">Test drive</div><div class="d" style="margin-top:4px">Stock vehicle on the training ground. Buy it in the Tech tree to take it into battle and upgrade it.</div></div>`}`;
-  for(const k of Object.keys(UPGRADES)){const el=$('up-'+k);if(!el)continue;el.addEventListener('click',()=>{const lv=up[k];if(lv>=3)return;const cost=UP_COST[lv];if(SAVE.credits<cost)return;SAVE.credits-=cost;up[k]=lv+1;persist();sfx('repair',.8);renderGarage();const f=$('up-'+k);if(f)f.focus();});}
+  for(const k of Object.keys(UPGRADES)){const el=$('up-'+k);if(!el)continue;el.addEventListener('click',()=>{const lv=up[k];if(lv>=3)return;const cost=upCost(c,lv);if(SAVE.credits<cost)return;SAVE.credits-=cost;up[k]=lv+1;persist();sfx('repair',.8);renderGarage();const f=$('up-'+k);if(f)f.focus();});}
   if(owned(key)&&!c.rocket)bindRack(key,c,up);
   $('stType').textContent=`Tier ${ROMAN[c.tier]} · ${c.type} · ${c.role}`;$('stName').textContent=c.name;
 }
